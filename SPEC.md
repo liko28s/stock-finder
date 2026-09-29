@@ -5,7 +5,7 @@ Python fund tool: screen stock universe (index/sector), detect pre-bull/pre-bear
 
 ## §C constraints
 - python 3.11+
-- data: Finnhub (primary — fundamentals, technicals, index/sector constituents) + Alpha Vantage (fallback/cross-check). NOT Binance — no live equities API (tokenized stocks discontinued 2021, crypto-only).
+- data: Yahoo Finance (primary — unofficial, yfinance lib, no key; fundamentals + OHLCV; no constituents endpoint → universe = config ticker list) + Alpha Vantage (fallback/cross-check). Finnhub dropped: /indicator premium. NOT Binance — no live equities API (tokenized stocks discontinued 2021, crypto-only).
 - AI: OpenRouter (cloud, configurable model) OR local Ollama, switchable via config, same prompt/output contract both paths
 - notify: Telegram Bot API, one message per pick, must include ticker + signal type (pre-bull/pre-bear) + reasoning summary
 - no auto-trade execution — advisory only, human confirms trades
@@ -13,7 +13,7 @@ Python fund tool: screen stock universe (index/sector), detect pre-bull/pre-bear
 - config-driven: API keys, model choice, universe (index/sector), thresholds — no hardcoded secrets
 
 ## §I interfaces
-- I.finnhub — REST, fundamentals + technical indicators + index/sector constituents, needs API key
+- I.yahoo — yfinance lib (unofficial Yahoo endpoints), fundamentals + daily OHLCV, no key, may break/rate-limit without notice
 - I.alphavantage — REST, fallback historical/fundamental data, needs API key
 - I.openrouter — REST chat completion, needs API key, model configurable
 - I.ollama — local HTTP API (localhost), model configurable
@@ -24,7 +24,7 @@ Python fund tool: screen stock universe (index/sector), detect pre-bull/pre-bear
 V1 | no ticker enters AI analysis w/o data validated from ≥1 live source fetch this run — no stale/cached silent reuse past config TTL
 V2 | AI output must reference specific fetched metrics (e.g. RSI value, P/E, earnings trend) in reasoning — reject/flag outputs w/ no data citation
 V3 | Telegram message never sent w/o both: (a) signal classification (pre-bull/pre-bear) and (b) reasoning text
-V4 | on data source failure (Finnhub down), fallback to Alpha Vantage before skipping ticker — never silently drop w/o logging
+V4 | on data source failure (primary source down), fallback to Alpha Vantage before skipping ticker — never silently drop w/o logging
 V5 | tool never places/executes trades — output is advisory notification only
 V6 | API keys/secrets loaded from config/env only — never hardcoded, never logged
 V7 | AI backend (OpenRouter vs Ollama) swappable via config without code change — same output schema from both
@@ -40,6 +40,7 @@ T6|x|output schema/validator — reject AI verdicts missing data citations|V2
 T7|x|Telegram notifier — format + send pick summary|I.telegram,V3
 T8|x|run orchestrator — screen → analyze → validate → notify, w/ fallback + logging on source failure|T2,T3,T4,T5,T6,T7,V4
 T9|x|scheduling (cron or internal loop) for periodic scans|T8
+T10|x|Yahoo client (yfinance) — fundamentals, technicals, universe from config ticker list; replace Finnhub as primary in orchestrator|I.yahoo,V1,V4
 
 ## §B bugs
 id|date|cause|fix

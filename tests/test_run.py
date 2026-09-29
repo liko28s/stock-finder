@@ -11,7 +11,7 @@ from stockfinder.data import SourceError
 from stockfinder.run import fetch_with_fallback, run
 
 TH = {"rsi_oversold": 30, "rsi_overbought": 70, "volume_ratio": 1.5, "ttl_seconds": 900}
-CFG = SimpleNamespace(universe={"index": "^X"}, thresholds=TH)
+CFG = SimpleNamespace(universe={"tickers": ["A", "B"]}, thresholds=TH)
 
 
 def snap(src="finnhub", rsi=25):
@@ -54,9 +54,9 @@ class Notifier:
 GOOD = {"signal": "pre-bull", "confidence": 0.8, "reasoning": "RSI 25 oversold, PE 20", "cited_metrics": {"rsi": 25}}
 
 
-def test_finnhub_failure_falls_back_to_alphavantage_and_logs(caplog):
+def test_primary_failure_falls_back_to_alphavantage_and_logs(caplog):
     with caplog.at_level(logging.WARNING):
-        s = fetch_with_fallback("A", Src(fail={"A"}), Src(src="alphavantage"))
+        s = fetch_with_fallback("A", Src(fail={"A"}, src="yahoo"), Src(src="alphavantage"))
     assert s["source"] == "alphavantage"
     assert "primary source failed" in caplog.text
 
@@ -84,6 +84,11 @@ def test_ai_failure_or_invalid_citation_sends_nothing(caplog):
         bad = {**GOOD, "cited_metrics": {"rsi": 99}, "reasoning": "RSI 99"}
         assert run(CFG, Src(), None, Analyzer(bad), n) == 0
     assert n.sent == [] and "verdict unusable" in caplog.text
+
+
+def test_empty_universe_raises():
+    with pytest.raises(ValueError):
+        run(SimpleNamespace(universe={"tickers": []}, thresholds=TH), Src(), None, Analyzer(GOOD), Notifier())
 
 
 def test_ai_disagreement_sends_nothing():

@@ -3,7 +3,7 @@ import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
-REQUIRED = {"finnhub": "FINNHUB_API_KEY", "tg_token": "TELEGRAM_BOT_TOKEN", "tg_chat": "TELEGRAM_CHAT_ID"}
+REQUIRED = {"tg_token": "TELEGRAM_BOT_TOKEN", "tg_chat": "TELEGRAM_CHAT_ID"}
 OPTIONAL = {"alphavantage": "ALPHAVANTAGE_API_KEY"}
 
 
