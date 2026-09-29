@@ -1,0 +1,15 @@
+[universe]
+index = "^GSPC"        # Finnhub index symbol
+sector = ""            # optional sector filter
+
+[thresholds]
+rsi_oversold = 30
+rsi_overbought = 70
+volume_ratio = 1.5     # today's volume / 20d avg
+ttl_seconds = 900      # max age of fetched data (V1)
+
+[ai]
+backend = "openrouter" # or "ollama"
+openrouter_model = "anthropic/claude-sonnet-4.5"
+ollama_model = "llama3.1"
+ollama_url = "http://localhost:11434"
