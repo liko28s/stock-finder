@@ -39,7 +39,7 @@ T5|x|AI analysis module — build prompt from fundamentals+technicals, call Open
 T6|x|output schema/validator — reject AI verdicts missing data citations|V2
 T7|x|Telegram notifier — format + send pick summary|I.telegram,V3
 T8|x|run orchestrator — screen → analyze → validate → notify, w/ fallback + logging on source failure|T2,T3,T4,T5,T6,T7,V4
-T9|.|scheduling (cron or internal loop) for periodic scans|T8
+T9|x|scheduling (cron or internal loop) for periodic scans|T8
 
 ## §B bugs
 id|date|cause|fix
