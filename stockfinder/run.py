@@ -4,16 +4,16 @@ from .ai import Analyzer, AIError
 from .alphavantage import AlphaVantage
 from .config import load
 from .data import SourceError
-from .finnhub import Finnhub
 from .screener import screen
 from .telegram import NotifyError, Telegram
 from .validate import ValidationError, validate
+from .yahoo import Yahoo
 
 log = logging.getLogger(__name__)
 
 
 def fetch_with_fallback(ticker, primary, fallback):
-    """V4: Finnhub first, then Alpha Vantage; every failure logged, never silently dropped."""
+    """V4: primary (Yahoo) first, then Alpha Vantage; every failure logged, never silently dropped."""
     try:
         return primary.snapshot(ticker)
     except SourceError as e:
@@ -24,7 +24,9 @@ def fetch_with_fallback(ticker, primary, fallback):
 
 
 def run(cfg, primary, fallback, analyzer, notifier):
-    tickers = primary.constituents(cfg.universe["index"])
+    tickers = cfg.universe["tickers"]  # Yahoo has no constituents endpoint: universe is config-listed
+    if not tickers:
+        raise ValueError("universe.tickers is empty")
     picks = screen(tickers, lambda t: fetch_with_fallback(t, primary, fallback), cfg.thresholds)
     sent = 0
     for pick in picks:
@@ -50,7 +52,7 @@ def main(config_path="config.toml"):
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     cfg = load(config_path)
     av = AlphaVantage(cfg.keys["alphavantage"]) if "alphavantage" in cfg.keys else None
-    return run(cfg, Finnhub(cfg.keys["finnhub"]), av, Analyzer(cfg.ai, cfg.keys),
+    return run(cfg, Yahoo(), av, Analyzer(cfg.ai, cfg.keys),
                Telegram(cfg.keys["tg_token"], cfg.keys["tg_chat"]))
 
 

@@ -1,6 +1,5 @@
 [universe]
-index = "^GSPC"        # Finnhub index symbol
-sector = ""            # optional sector filter
+tickers = ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "JPM", "XOM"]  # Yahoo has no constituents API
 
 [thresholds]
 rsi_oversold = 30
