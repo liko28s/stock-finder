@@ -37,7 +37,7 @@ T3|x|Alpha Vantage client — fallback fetch|I.alphavantage,V4
 T4|x|universe screener — pull index/sector constituents, apply pre-bull/pre-bear technical filter (volume, RSI, MA crossover etc)|T2,V1
 T5|x|AI analysis module — build prompt from fundamentals+technicals, call OpenRouter or Ollama per config, parse structured verdict (signal, confidence, reasoning, cited metrics)|I.openrouter,I.ollama,V2,V7
 T6|x|output schema/validator — reject AI verdicts missing data citations|V2
-T7|.|Telegram notifier — format + send pick summary|I.telegram,V3
+T7|x|Telegram notifier — format + send pick summary|I.telegram,V3
 T8|.|run orchestrator — screen → analyze → validate → notify, w/ fallback + logging on source failure|T2,T3,T4,T5,T6,T7,V4
 T9|.|scheduling (cron or internal loop) for periodic scans|T8
 
