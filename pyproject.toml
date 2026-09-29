@@ -1,0 +1,14 @@
+[project]
+name = "stockfinder"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = ["requests"]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.setuptools]
+packages = ["stockfinder"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
