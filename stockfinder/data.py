@@ -12,6 +12,19 @@ def sma(xs, n):
     return sum(xs[-n:]) / n
 
 
+def rsi(closes, n=14):
+    """Wilder RSI."""
+    if len(closes) <= n:
+        raise SourceError(f"need {n + 1} closes, got {len(closes)}")
+    d = [b - a for a, b in zip(closes, closes[1:])]
+    up = sum(max(x, 0) for x in d[:n]) / n
+    dn = sum(max(-x, 0) for x in d[:n]) / n
+    for x in d[n:]:
+        up = (up * (n - 1) + max(x, 0)) / n
+        dn = (dn * (n - 1) + max(-x, 0)) / n
+    return 100.0 if dn == 0 else 100 - 100 / (1 + up / dn)
+
+
 def technicals(closes, volumes, rsi):
     """Derive the indicator set from raw series. Volume ratio = last / avg of prior 20."""
     if len(volumes) < 21:

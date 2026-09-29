@@ -33,7 +33,7 @@ V7 | AI backend (OpenRouter vs Ollama) swappable via config without code change 
 id|status|desc|cites
 T1|x|project scaffold (pyproject, config loader, .env template)|V6
 T2|x|Finnhub client — fundamentals, technicals, index/sector constituents|I.finnhub,V1
-T3|.|Alpha Vantage client — fallback fetch|I.alphavantage,V4
+T3|x|Alpha Vantage client — fallback fetch|I.alphavantage,V4
 T4|.|universe screener — pull index/sector constituents, apply pre-bull/pre-bear technical filter (volume, RSI, MA crossover etc)|T2,V1
 T5|.|AI analysis module — build prompt from fundamentals+technicals, call OpenRouter or Ollama per config, parse structured verdict (signal, confidence, reasoning, cited metrics)|I.openrouter,I.ollama,V2,V7
 T6|.|output schema/validator — reject AI verdicts missing data citations|V2
