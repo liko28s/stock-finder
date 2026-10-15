@@ -1,14 +1,33 @@
+import logging
+
 import yfinance
 
 from .data import SourceError, rsi, snapshot, technicals
+
+log = logging.getLogger(__name__)
 
 FUND_KEYS = {"pe": "trailingPE", "eps_growth": "earningsGrowth", "revenue_growth": "revenueGrowth",
              "net_margin": "profitMargins", "beta": "beta", "52w_high": "fiftyTwoWeekHigh", "52w_low": "fiftyTwoWeekLow"}
 
 
 class Yahoo:
-    def __init__(self, ticker_factory=yfinance.Ticker):
+    def __init__(self, ticker_factory=yfinance.Ticker, screen_fn=yfinance.screen):
         self.ticker = ticker_factory
+        self.screen_fn = screen_fn
+
+    def discover(self, screens, count=50):
+        """Symbols from Yahoo predefined screens (most_actives etc). One screen failing never aborts the rest."""
+        out = []
+        for s in screens:
+            try:
+                r = self.screen_fn(s, count=count)
+            except Exception as e:  # unofficial endpoint: any failure just skips that screen
+                log.warning("discover %s: %s", s, type(e).__name__)
+                continue
+            for q in (r.get("quotes") if isinstance(r, dict) else r) or []:
+                if q.get("symbol"):
+                    out.append(q["symbol"])
+        return out
 
     def fundamentals(self, ticker):
         try:

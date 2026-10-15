@@ -6,3 +6,5 @@ __pycache__/
 .headroom/
 .tokensave/
 .claude/
+alerts_state.json
+.serena/

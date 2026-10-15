@@ -21,11 +21,11 @@ def snap(src="finnhub", rsi=25):
 
 
 class Src:
-    def __init__(self, fail=(), src="finnhub"):
-        self.fail, self.src = set(fail), src
+    def __init__(self, fail=(), src="finnhub", discovered=()):
+        self.fail, self.src, self.discovered = set(fail), src, list(discovered)
 
-    def constituents(self, index):
-        return ["A", "B"]
+    def discover(self, screens):
+        return self.discovered
 
     def snapshot(self, t):
         if t in self.fail or "*" in self.fail:
@@ -89,6 +89,34 @@ def test_ai_failure_or_invalid_citation_sends_nothing(caplog):
 def test_empty_universe_raises():
     with pytest.raises(ValueError):
         run(SimpleNamespace(universe={"tickers": []}, thresholds=TH), Src(), None, Analyzer(GOOD), Notifier())
+
+
+def test_universe_unions_discovered():
+    from stockfinder.run import build_universe
+    cfg = SimpleNamespace(universe={"tickers": ["A", "B"], "screens": ["most_actives"], "max_tickers": 60})
+    # B duplicated by discovery, C new, order preserved
+    assert build_universe(cfg, Src(discovered=["B", "C"])) == ["A", "B", "C"]
+
+
+def test_universe_cap_applies():
+    from stockfinder.run import build_universe
+    cfg = SimpleNamespace(universe={"tickers": ["A"], "screens": ["s"], "max_tickers": 2})
+    assert build_universe(cfg, Src(discovered=["B", "C", "D"])) == ["A", "B"]
+
+
+def test_duplicate_signal_not_resent_across_runs():
+    n = Notifier()
+    seen = {}
+    assert run(CFG, Src(), None, Analyzer(GOOD), n, seen) == 2  # first scan alerts both
+    assert run(CFG, Src(), None, Analyzer(GOOD), n, seen) == 0  # same signals: silent
+    assert n.sent == ["A", "B"] and seen == {"A": "pre-bull", "B": "pre-bull"}
+
+
+def test_changed_signal_resends():
+    n = Notifier()
+    seen = {"A": "pre-bear", "B": "pre-bull"}  # A flipped since last run
+    assert run(CFG, Src(), None, Analyzer(GOOD), n, seen) == 1
+    assert n.sent == ["A"]
 
 
 def test_ai_disagreement_sends_nothing():

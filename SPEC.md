@@ -5,7 +5,7 @@ Python fund tool: screen stock universe (index/sector), detect pre-bull/pre-bear
 
 ## §C constraints
 - python 3.11+
-- data: Yahoo Finance (primary — unofficial, yfinance lib, no key; fundamentals + OHLCV; no constituents endpoint → universe = config ticker list) + Alpha Vantage (fallback/cross-check). Finnhub dropped: /indicator premium. NOT Binance — no live equities API (tokenized stocks discontinued 2021, crypto-only).
+- data: Yahoo Finance (primary — unofficial, yfinance lib, no key; fundamentals + OHLCV; no constituents endpoint → universe = config ticker list ∪ discovered via Yahoo predefined screens e.g. most_actives) + Alpha Vantage (fallback/cross-check). Finnhub dropped: /indicator premium. NOT Binance — no live equities API (tokenized stocks discontinued 2021, crypto-only).
 - AI: OpenRouter (cloud, configurable model) OR local Ollama, switchable via config, same prompt/output contract both paths
 - notify: Telegram Bot API, one message per pick, must include ticker + signal type (pre-bull/pre-bear) + reasoning summary
 - no auto-trade execution — advisory only, human confirms trades
@@ -13,7 +13,7 @@ Python fund tool: screen stock universe (index/sector), detect pre-bull/pre-bear
 - config-driven: API keys, model choice, universe (index/sector), thresholds — no hardcoded secrets
 
 ## §I interfaces
-- I.yahoo — yfinance lib (unofficial Yahoo endpoints), fundamentals + daily OHLCV, no key, may break/rate-limit without notice
+- I.yahoo — yfinance lib (unofficial Yahoo endpoints), fundamentals + daily OHLCV + yf.screen predefined screens (most_actives etc) for discovery, no key, may break/rate-limit without notice
 - I.alphavantage — REST, fallback historical/fundamental data, needs API key
 - I.openrouter — REST chat completion, needs API key, model configurable
 - I.ollama — local HTTP API (localhost), model configurable
@@ -41,6 +41,8 @@ T7|x|Telegram notifier — format + send pick summary|I.telegram,V3
 T8|x|run orchestrator — screen → analyze → validate → notify, w/ fallback + logging on source failure|T2,T3,T4,T5,T6,T7,V4
 T9|x|scheduling (cron or internal loop) for periodic scans|T8
 T10|x|Yahoo client (yfinance) — fundamentals, technicals, universe from config ticker list; replace Finnhub as primary in orchestrator|I.yahoo,V1,V4
+T11|x|ticker discovery — yf.screen predefined screens (config list), union w/ config tickers, dedupe, cap count; orchestrator scans the union|I.yahoo,V1
+T12|x|alert dedupe — persist last signal per ticker, skip re-notify same ticker+signal on consecutive scans (monitor runs repeatedly)|V3
 
 ## §B bugs
 id|date|cause|fix
