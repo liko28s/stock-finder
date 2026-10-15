@@ -1,5 +1,7 @@
 [universe]
-tickers = ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "JPM", "XOM"]  # Yahoo has no constituents API
+tickers = ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "JPM", "XOM", "INTC", "GOOG", "SMTC", "QBTS", "TSLA", "AMD", "JBLU"]  # Yahoo has no constituents API
+screens = ["most_actives"]  # Yahoo predefined screens to discover extra candidates; [] disables
+max_tickers = 60            # cap on total scanned (config + discovered), API politeness
 
 [thresholds]
 rsi_oversold = 30
@@ -9,6 +11,6 @@ ttl_seconds = 900      # max age of fetched data (V1)
 
 [ai]
 backend = "openrouter" # or "ollama"
-openrouter_model = "anthropic/claude-sonnet-4.5"
-ollama_model = "llama3.1"
+openrouter_model = "nvidia/nemotron-3-ultra-550b-a55b:free"
+ollama_model = "openbmb/minicpm5"
 ollama_url = "http://localhost:11434"

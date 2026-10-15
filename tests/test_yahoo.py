@@ -54,3 +54,17 @@ def test_empty_info_is_source_error():
 def test_scrape_exception_wrapped():
     with pytest.raises(SourceError):
         yahoo(err=RuntimeError("429")).snapshot("AAPL")
+
+
+def test_discover_collects_symbols_and_skips_failing_screen():
+    screens = {"most_actives": {"quotes": [{"symbol": "NVDA"}, {"symbol": "INTC"}, {"no": "sym"}]},
+               "day_losers": RuntimeError("down")}
+
+    def screen_fn(s, count):
+        r = screens[s]
+        if isinstance(r, Exception):
+            raise r
+        return r
+
+    y = Yahoo(screen_fn=screen_fn)
+    assert y.discover(["most_actives", "day_losers"]) == ["NVDA", "INTC"]
