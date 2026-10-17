@@ -1,10 +1,15 @@
 import json
+import logging
 import re
 
 import requests
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models"
+MAX_TRIES = 5  # models attempted per pick before giving up
 SIGNALS = {"pre-bull", "pre-bear", "neutral"}
+
+log = logging.getLogger(__name__)
 
 PROMPT = """You are an equity analyst advising a fund. A screener flagged {ticker} as {signal}.
 Data (fetched live from {source}):
@@ -51,12 +56,34 @@ class Analyzer:
     def __init__(self, ai_cfg, keys, http=requests):
         self.cfg, self.keys, self.http = ai_cfg, keys, http
 
-    def _call(self, prompt):
+    def _free_models(self):
+        """Free OpenRouter models that accept response_format, fetched once per Analyzer. Failure -> []."""
+        if not hasattr(self, "_free"):
+            try:
+                r = self.http.get(OPENROUTER_MODELS_URL, timeout=30)
+                r.raise_for_status()
+                self._free = [m["id"] for m in r.json()["data"]
+                              if all(float(m["pricing"].get(k) or 1) == 0 for k in ("prompt", "completion"))
+                              and "response_format" in (m.get("supported_parameters") or [])]
+            except (requests.RequestException, ValueError, KeyError, TypeError):
+                log.warning("could not list free OpenRouter models, using configured ones only")
+                self._free = []
+        return self._free
+
+    def _models(self):
+        """Configured model first, then configured fallbacks, then every free model OpenRouter lists."""
+        c = self.cfg
+        ordered = [c["openrouter_model"], *c.get("openrouter_fallbacks", [])]
+        if c.get("auto_free_models", True):
+            ordered += self._free_models()
+        return list(dict.fromkeys(ordered))[:c.get("max_model_tries", MAX_TRIES)]
+
+    def _call(self, prompt, model=None):
         backend = self.cfg["backend"]
         msgs = [{"role": "user", "content": prompt}]
         if backend == "openrouter":
             r = self.http.post(OPENROUTER_URL, headers={"Authorization": f"Bearer {self.keys['openrouter']}"},
-                               json={"model": self.cfg["openrouter_model"], "messages": msgs,
+                               json={"model": model or self.cfg["openrouter_model"], "messages": msgs,
                                      "temperature": 0, "response_format": {"type": "json_object"}}, timeout=120)
             extract = lambda d: d["choices"][0]["message"]["content"]
         elif backend == "ollama":
@@ -73,4 +100,16 @@ class Analyzer:
             raise AIError(f"{backend} call failed: {type(e).__name__}") from e
 
     def analyze(self, pick):
-        return parse_verdict(self._call(build_prompt(pick)))
+        """OpenRouter: roll over to the next model on call failure, rate limit or unparsable reply. Verdict is
+        tagged with the model that produced it."""
+        prompt = build_prompt(pick)
+        if self.cfg["backend"] != "openrouter":
+            return parse_verdict(self._call(prompt))
+        errors = []
+        for model in self._models():
+            try:
+                return {**parse_verdict(self._call(prompt, model)), "model": model}
+            except AIError as e:
+                log.warning("%s: model %s failed (%s), trying next", pick["ticker"], model, e)
+                errors.append(f"{model}: {e}")
+        raise AIError("all models failed: " + "; ".join(errors))
