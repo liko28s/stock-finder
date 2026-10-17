@@ -11,6 +11,9 @@ ttl_seconds = 900      # max age of fetched data (V1)
 
 [ai]
 backend = "openrouter" # or "ollama"
-openrouter_model = "nvidia/nemotron-3-ultra-550b-a55b:free"
+openrouter_model = "nvidia/nemotron-3-ultra-550b-a55b:free"  # tried first
+openrouter_fallbacks = []   # optional explicit models tried next
+auto_free_models = true     # then roll over to any other free OpenRouter model
+max_model_tries = 5         # models tried per pick
 ollama_model = "openbmb/minicpm5"
 ollama_url = "http://localhost:11434"
