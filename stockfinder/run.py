@@ -5,6 +5,7 @@ from pathlib import Path
 from .ai import Analyzer, AIError
 from .alphavantage import AlphaVantage
 from .config import load
+from . import feedback
 from .data import SourceError
 from .screener import screen
 from .telegram import NotifyError, Telegram
@@ -41,9 +42,10 @@ def build_universe(cfg, primary):
     return out[:cap] if cap else out
 
 
-def run(cfg, primary, fallback, analyzer, notifier, last_signals=None):
+def run(cfg, primary, fallback, analyzer, notifier, last_signals=None, fb_state=None):
     """last_signals: ticker -> last alerted signal, mutated in place. T12: skip re-notifying the same
-    ticker+signal across repeated monitor runs."""
+    ticker+signal across repeated monitor runs. fb_state: feedback state; each sent alert is recorded so
+    👍/👎 reactions can be matched back to it."""
     seen = last_signals if last_signals is not None else {}
     tickers = build_universe(cfg, primary)
     picks = screen(tickers, lambda t: fetch_with_fallback(t, primary, fallback), cfg.thresholds)
@@ -62,8 +64,10 @@ def run(cfg, primary, fallback, analyzer, notifier, last_signals=None):
             log.info("%s: %s already alerted, skipping duplicate", tk, verdict["signal"])
             continue
         try:
-            notifier.send_pick(pick, verdict)
+            message_id = notifier.send_pick(pick, verdict)
             seen[tk] = verdict["signal"]
+            if fb_state is not None:
+                feedback.record(fb_state, message_id, tk, verdict["signal"])
             sent += 1
         except NotifyError as e:
             log.error("%s: alert failed: %s", tk, e)
@@ -71,17 +75,20 @@ def run(cfg, primary, fallback, analyzer, notifier, last_signals=None):
     return sent
 
 
-def main(config_path="config.toml", state_path="alerts_state.json"):
+def main(config_path="config.toml", state_path="alerts_state.json", feedback_path="feedback.json"):
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     cfg = load(config_path)
     av = AlphaVantage(cfg.keys["alphavantage"]) if "alphavantage" in cfg.keys else None
     state = Path(state_path)
     seen = json.loads(state.read_text()) if state.exists() else {}
+    fb = feedback.load(feedback_path)
+    tg = Telegram(cfg.keys["tg_token"], cfg.keys["tg_chat"])
     try:
-        return run(cfg, Yahoo(), av, Analyzer(cfg.ai, cfg.keys),
-                   Telegram(cfg.keys["tg_token"], cfg.keys["tg_chat"]), seen)
-    finally:
-        state.write_text(json.dumps(seen))  # persist even if a later ticker raises
+        feedback.sync(fb, tg, cfg.feedback.get("review_after_days", 5))
+        return run(cfg, Yahoo(), av, Analyzer(cfg.ai, cfg.keys), tg, seen, fb)
+    finally:  # persist even if a later ticker raises
+        state.write_text(json.dumps(seen))
+        feedback.save(fb, feedback_path)
 
 
 if __name__ == "__main__":

@@ -49,6 +49,7 @@ class Notifier:
 
     def send_pick(self, pick, verdict):
         self.sent.append(pick["ticker"])
+        return 100 + len(self.sent)
 
 
 GOOD = {"signal": "pre-bull", "confidence": 0.8, "reasoning": "RSI 25 oversold, PE 20", "cited_metrics": {"rsi": 25}}
@@ -75,6 +76,12 @@ def test_end_to_end_alerts_validated_picks():
     n = Notifier()
     assert run(CFG, Src(), None, Analyzer(GOOD), n) == 2
     assert n.sent == ["A", "B"]
+
+
+def test_sent_alerts_recorded_for_reaction_matching():
+    fb = {"offset": None, "alerts": []}
+    run(CFG, Src(), None, Analyzer(GOOD), Notifier(), None, fb)
+    assert [(a["id"], a["ticker"], a["signal"]) for a in fb["alerts"]] == [(101, "A", "pre-bull"), (102, "B", "pre-bull")]
 
 
 def test_ai_failure_or_invalid_citation_sends_nothing(caplog):
