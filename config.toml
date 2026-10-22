@@ -17,3 +17,6 @@ auto_free_models = true     # then roll over to any other free OpenRouter model
 max_model_tries = 5         # models tried per pick
 ollama_model = "openbmb/minicpm5"
 ollama_url = "http://localhost:11434"
+
+[feedback]
+review_after_days = 5  # remind on unresolved alerts after this many days (react 👍 TP hit / 👎 SL hit)
