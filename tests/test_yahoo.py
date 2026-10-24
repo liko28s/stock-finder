@@ -19,7 +19,7 @@ class FakeTicker:
             raise self.err
         return self._info
 
-    def history(self, period, interval):
+    def history(self, period=None, interval=None, start=None):
         if self.err:
             raise self.err
         return self._hist if self._hist is not None else pd.DataFrame(
@@ -68,3 +68,24 @@ def test_discover_collects_symbols_and_skips_failing_screen():
 
     y = Yahoo(screen_fn=screen_fn)
     assert y.discover(["most_actives", "day_losers"]) == ["NVDA", "INTC"]
+
+
+def test_discover_interleaves_screens_so_cap_keeps_each_screens_top():
+    r = {"a": {"quotes": [{"symbol": "A1"}, {"symbol": "A2"}, {"symbol": "A3"}]},
+         "b": {"quotes": [{"symbol": "B1"}, {"symbol": "B2"}]}}
+    assert Yahoo(screen_fn=lambda s, count: r[s]).discover(["a", "b"]) == ["A1", "B1", "A2", "B2", "A3"]
+
+
+def test_snapshot_has_returns():
+    t = yahoo(hist=hist()).snapshot("AAPL")["technicals"]
+    assert t["ret1d"] == pytest.approx((15.9 / 15.8 - 1) * 100) and t["ret5d"] > 0 and t["ret20d"] > t["ret5d"]
+
+
+def test_path_returns_daily_bars_since_alert():
+    df = pd.DataFrame({"Open": [10, 11], "High": [11, 13], "Low": [9, 10.5], "Close": [10.5, 12.0]},
+                      index=pd.to_datetime(["2026-10-20", "2026-10-21"]))
+    bars = yahoo(hist=df).path("AAPL", time.time())
+    assert bars == [{"date": "2026-10-20", "open": 10.0, "high": 11.0, "low": 9.0, "close": 10.5},
+                    {"date": "2026-10-21", "open": 11.0, "high": 13.0, "low": 10.5, "close": 12.0}]
+    with pytest.raises(SourceError):
+        yahoo(err=RuntimeError("x")).path("AAPL", time.time())

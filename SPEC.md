@@ -43,6 +43,14 @@ T9|x|scheduling (cron or internal loop) for periodic scans|T8
 T10|x|Yahoo client (yfinance) — fundamentals, technicals, universe from config ticker list; replace Finnhub as primary in orchestrator|I.yahoo,V1,V4
 T11|x|ticker discovery — yf.screen predefined screens (config list), union w/ config tickers, dedupe, cap count; orchestrator scans the union|I.yahoo,V1
 T12|x|alert dedupe — persist last signal per ticker, skip re-notify same ticker+signal on consecutive scans (monitor runs repeatedly)|V3
+T13|x|OpenRouter model rollover — configured model, explicit fallbacks, then any free model listing response_format; roll on call failure/429/unparsable reply|I.openrouter,V7
+T14|x|Telegram messages: #TICKER + #signal hashtags, model/source footer, return message_id|V3
+T15|x|human feedback — 👍=TP hit, 👎=SL hit via message_reaction updates; reminder after N days; hit-rate summary|I.telegram,V5
+T16|x|post-mortem on reaction — replay signal-time data+reasoning, price path since alert, AI explains outcome + suggests adjustments, reply under alert|T15,V2,V5
+T17|x|more indicators in snapshot + prompt: MACD(12/26/9), ATR14, ADX14 (+DI/-DI), OBV slope, KER10, 20d z-score (mean reversion); skipped when history too short|V1,V2
+T18|x|catch movers: discovery adds day_gainers/day_losers (round-robin under cap), ret1d/5d/20d indicators, momentum trigger (|1d move| >= move_pct w/ volume, lower priority than RSI/MA extremes)|T11,V1
+T19|x|alert links: exact alert time/price, QuickChart candlestick marked at alert, TradingView link; failure never blocks alert|V3
+T20|x|10 USD sample-trade scenarios (1w..6m worst/expected/best) in verdict + alert; volatility-anchored prompt, bounds-checked, optional|V2
 
 ## §B bugs
 id|date|cause|fix

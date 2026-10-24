@@ -10,25 +10,73 @@ Run once: `.venv/bin/python -m stockfinder.run`
 ## Monitor (recurring)
 
 cron runs the scan repeatedly. `alerts_state.json` records the last signal per ticker,
-so a pick is alerted once, not re-sent every scan (until its signal changes).
+so a pick is alerted once per day, not re-sent every scan (the state resets each morning).
 
-Every 30 min, weekdays, US market hours (13:00-21:00 UTC ≈ 9-5 ET):
+Every 30 min, weekdays, US market hours (cron uses LOCAL time: 8:00-15:30 CDT ≈ 9:00-16:30 ET; adjust to your TZ):
 
 ```
-*/30 13-21 * * 1-5  cd /Users/sumapaz/Code/stock-finder && .venv/bin/python -m stockfinder.run >> scan.log 2>&1
+*/30 8-15 * * 1-5  cd /Users/sumapaz/Code/stock-finder && .venv/bin/python -m stockfinder.run >> scan.log 2>&1
 ```
 
 Install it:
 
 ```
-(crontab -l 2>/dev/null; echo '*/30 13-21 * * 1-5  cd /Users/sumapaz/Code/stock-finder && .venv/bin/python -m stockfinder.run >> scan.log 2>&1') | crontab -
+(crontab -l 2>/dev/null; echo '*/30 8-15 * * 1-5  cd /Users/sumapaz/Code/stock-finder && .venv/bin/python -m stockfinder.run >> scan.log 2>&1') | crontab -
 ```
 
 Keep the interval above `ttl_seconds` in `config.toml`; every run refetches, so nothing stale is reused (V1).
+
+## Indicators
+
+The AI sees (computed from daily OHLCV): RSI14, SMA20/50, volume ratio, MACD 12/26/9, ATR14 (+ % of price),
+ADX14 with +DI/-DI, OBV slope (20d), Kaufman efficiency ratio (10d), 20d z-score (mean-reversion stretch).
+Indicators that need more history than the source returned are omitted, not faked. They inform the AI and the
+post-mortem; the screener's pre-bull/pre-bear filter is unchanged.
+
+## Sample-trade scenarios
+
+Each alert includes a 10 USD sample trade (long for pre-bull, short for pre-bear) with worst / expected / best P&L after
+1w, 2w, 3w, 4w, 2m and 6m. The AI writes the table, but the prompt gives it the stock's daily volatility (`vol20`) and the
+one-sigma P&L per horizon, and the validator drops any table that is unordered, beyond 3 sigma, or loses a long more than
+the stake. A dropped table never blocks the alert. It is an illustration of best/worst cases, not a forecast.
+
+## Alerts and feedback
+
+Each alert carries `#TICKER` and `#pre_bull`/`#pre_bear` hashtags: tap one in Telegram to list every alert for it.
+
+Each alert shows the exact alert time and price, a QuickChart candlestick (3 months of daily candles, marked at the
+alert candle and price level) and a TradingView link for the interactive chart. Charts use quickchart.io (free,
+no key; only public OHLC data is sent); a failure just drops the chart line. `[alerts] chart_links = false` disables it.
+
+React to an alert: 👍 = target hit, 👎 = stop hit. Each scan polls reactions (`feedback.json`) and, after
+`feedback.review_after_days`, replies under unresolved alerts asking how it went. Reacting on the reminder works too.
+When you react, the next scan runs a post-mortem and replies under the alert: it replays the signal-time
+indicators and original reasoning, adds the daily price path since (best/worst move computed in code), and the AI
+says what happened, rates the call (good/bad/lucky/unlucky/inconclusive) and suggests adjustments to test. It
+challenges your reaction if the prices disagree. Changing your reaction triggers a fresh review.
+
+Group chats: the bot must be an admin to receive reactions.
+
+Hit rate per signal: `.venv/bin/python -m stockfinder.feedback`.
+
+Don't set a Telegram webhook on the bot; reactions are read with `getUpdates`.
+
+## Digest and debug
+
+Without flags you get alerts plus one daily digest (15:00+ local) if no alert fired that day. `python -m stockfinder.run
+--debug` also sends every non-alert outcome and the run summary (scan counts, per-model calls/time/tokens) to Telegram.
+
+## AI model rollover
+
+With `ai.backend = "openrouter"`, a failing model (error, rate limit, unparsable reply) rolls over to
+`openrouter_fallbacks`, then to any other free OpenRouter model, up to `max_model_tries`, sticking to the last model that worked and logging per-model calls, time and tokens. `auto_free_models = false`
+disables discovery. The alert footer names the model that answered.
 
 ## Config
 
 - `universe.tickers` — always scanned.
 - `universe.screens` — Yahoo predefined screens for discovery (`[]` disables).
+- `thresholds.max_picks` — only the N most relevant screened picks per scan get an AI call (rank = volume ratio × bigger of 1-day move and RSI distance from 50). Already-alerted picks are skipped before the AI call.
+- `thresholds.move_pct` — a 1-day move of at least this % on high volume is a momentum pick (RSI/MA extremes win when both fire; remove to disable).
 - `universe.max_tickers` — cap on total scanned.
 - `ai.backend` — `openrouter` or `ollama`, same output contract either way.

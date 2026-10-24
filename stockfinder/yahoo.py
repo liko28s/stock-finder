@@ -1,4 +1,6 @@
 import logging
+from itertools import zip_longest
+from datetime import datetime, timezone
 
 import yfinance
 
@@ -17,17 +19,17 @@ class Yahoo:
 
     def discover(self, screens, count=50):
         """Symbols from Yahoo predefined screens (most_actives etc). One screen failing never aborts the rest."""
-        out = []
+        lists = []
         for s in screens:
             try:
                 r = self.screen_fn(s, count=count)
             except Exception as e:  # unofficial endpoint: any failure just skips that screen
                 log.warning("discover %s: %s", s, type(e).__name__)
                 continue
-            for q in (r.get("quotes") if isinstance(r, dict) else r) or []:
-                if q.get("symbol"):
-                    out.append(q["symbol"])
-        return out
+            lists.append([q["symbol"] for q in (r.get("quotes") if isinstance(r, dict) else r) or []
+                          if q.get("symbol")])
+        # interleave so a max_tickers cap takes the top of every screen, not all of the first one
+        return [x for row in zip_longest(*lists) for x in row if x]
 
     def fundamentals(self, ticker):
         try:
@@ -43,11 +45,36 @@ class Yahoo:
         try:
             h = self.ticker(ticker).history(period="1y", interval="1d")
             closes, vols = h["Close"].dropna().tolist(), h["Volume"].dropna().tolist()
+            hc = h.dropna(subset=["Close"])  # keep highs/lows aligned with closes
+            highs, lows = (hc["High"].tolist(), hc["Low"].tolist()) if {"High", "Low"} <= set(h) else (None, None)
         except Exception as e:
             raise SourceError(f"yahoo history {ticker}: {type(e).__name__}") from e
         if not closes:  # yfinance returns an empty frame instead of raising
             raise SourceError(f"yahoo: no history for {ticker}")
-        return technicals(closes, vols, rsi(closes))
+        return technicals(closes, vols, rsi(closes), highs, lows)
+
+    def path(self, ticker, since_ts):
+        """Daily bars from the alert day to now: [{date, open, high, low, close}] for post-mortems."""
+        start = datetime.fromtimestamp(since_ts, timezone.utc).date().isoformat()
+        try:
+            h = self.ticker(ticker).history(start=start, interval="1d").dropna(subset=["Close"])
+            bars = [{"date": str(i.date()), **{k: round(float(r[c]), 2) for k, c in
+                     (("open", "Open"), ("high", "High"), ("low", "Low"), ("close", "Close"))}}
+                    for i, r in h.iterrows()]
+        except Exception as e:
+            raise SourceError(f"yahoo path {ticker}: {type(e).__name__}") from e
+        if not bars:
+            raise SourceError(f"yahoo: no bars for {ticker} since {start}")
+        return bars
+
+    def candles(self, ticker, period="3mo"):
+        """Daily candles for charting: [{x: epoch ms, o, h, l, c}]."""
+        try:
+            h = self.ticker(ticker).history(period=period, interval="1d").dropna(subset=["Close"])
+            return [{"x": int(i.timestamp() * 1000), "o": float(r["Open"]), "h": float(r["High"]),
+                     "l": float(r["Low"]), "c": float(r["Close"])} for i, r in h.iterrows()]
+        except Exception as e:
+            raise SourceError(f"yahoo candles {ticker}: {type(e).__name__}") from e
 
     def snapshot(self, ticker):
         return snapshot(ticker, "yahoo", self.fundamentals(ticker), self.technicals(ticker))

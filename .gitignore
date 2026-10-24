@@ -8,3 +8,5 @@ __pycache__/
 .claude/
 alerts_state.json
 .serena/
+feedback.json
+.codegraph/

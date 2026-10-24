@@ -53,3 +53,20 @@ def test_failure_does_not_leak_token():
 def test_ok_false_raises():
     with pytest.raises(NotifyError):
         tg(FakeHttp(Resp({"ok": False}))).send("AAPL", "pre-bull", "RSI 27.4")
+
+
+def test_hashtags_for_search_and_reaction_hint():
+    t = format_pick("BRK-B", "pre-bull", "RSI 27.4", 0.7, "yahoo", "some/model:free")
+    assert "#BRK_B #pre_bull" in t and "some/model:free" in t and "👍" in t and "👎" in t
+
+
+def test_send_returns_message_id():
+    assert tg(FakeHttp(Resp({"ok": True, "result": {"message_id": 7}}))).send("AAPL", "pre-bull", "RSI 27.4") == 7
+
+
+def test_send_text_plain_and_failure_safe():
+    http = FakeHttp()
+    tg(http).send_text("digest")
+    assert http.calls[0][1]["text"] == "digest"
+    with pytest.raises(NotifyError):
+        tg(FakeHttp(Resp({"ok": False}))).send_text("x")

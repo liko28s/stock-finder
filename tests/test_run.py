@@ -1,6 +1,7 @@
 import logging
 import re
 import time
+from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -45,10 +46,14 @@ class Analyzer:
 
 class Notifier:
     def __init__(self):
-        self.sent = []
+        self.sent, self.texts = [], []
+
+    def send_text(self, text):
+        self.texts.append(text)
 
     def send_pick(self, pick, verdict):
         self.sent.append(pick["ticker"])
+        return 100 + len(self.sent)
 
 
 GOOD = {"signal": "pre-bull", "confidence": 0.8, "reasoning": "RSI 25 oversold, PE 20", "cited_metrics": {"rsi": 25}}
@@ -75,6 +80,25 @@ def test_end_to_end_alerts_validated_picks():
     n = Notifier()
     assert run(CFG, Src(), None, Analyzer(GOOD), n) == 2
     assert n.sent == ["A", "B"]
+
+
+def test_sent_alerts_recorded_for_reaction_matching():
+    fb = {"offset": None, "alerts": []}
+    run(CFG, Src(), None, Analyzer(GOOD), Notifier(), None, fb)
+    assert [(a["id"], a["ticker"], a["signal"]) for a in fb["alerts"]] == [(101, "A", "pre-bull"), (102, "B", "pre-bull")]
+
+
+def test_only_top_n_picks_reach_the_ai_and_alerted_ones_are_skipped():
+    calls = []
+
+    class Counting(Analyzer):
+        def analyze(self, pick):
+            calls.append(pick["ticker"])
+            return super().analyze(pick)
+
+    cfg = SimpleNamespace(universe={"tickers": ["A", "B", "C"]}, thresholds={**TH, "max_picks": 2})
+    assert run(cfg, Src(), None, Counting(GOOD), Notifier(), {"A": "pre-bull"}) == 1
+    assert len(calls) == 1  # 3 screened, cut to 2, one of those already alerted -> 1 AI call
 
 
 def test_ai_failure_or_invalid_citation_sends_nothing(caplog):
@@ -128,3 +152,24 @@ def test_no_trade_api_imported():
     """V5: advisory only. No broker libs or order endpoints anywhere in the package."""
     src = "\n".join(p.read_text() for p in Path("stockfinder").glob("*.py"))
     assert not re.search(r"alpaca|ib_insync|ccxt|robin_hood|place_order|submit_order|/orders", src, re.I)
+
+
+LATE, EARLY = datetime(2026, 10, 19, 15, 30), datetime(2026, 10, 19, 9, 0)
+
+
+def test_digest_once_when_quiet_and_debug_sends_all():
+    n, seen = Notifier(), {}
+    run(CFG, Src(), None, Analyzer(err=AIError("x")), n, seen, now=EARLY)
+    assert n.texts == []                                   # too early
+    run(CFG, Src(), None, Analyzer(err=AIError("x")), n, seen, now=LATE)
+    run(CFG, Src(), None, Analyzer(err=AIError("x")), n, seen, now=LATE)
+    assert len(n.texts) == 1 and n.texts[0].startswith("Daily digest")
+    n = Notifier()
+    run(CFG, Src(), None, Analyzer(err=AIError("x")), n, {}, debug=True, now=LATE)
+    assert any("unusable" in t for t in n.texts) and any("scanned" in t for t in n.texts)
+
+
+def test_no_digest_after_alert():
+    n, seen = Notifier(), {}
+    run(CFG, Src(), None, Analyzer(GOOD), n, seen, now=LATE)
+    assert n.texts == []
