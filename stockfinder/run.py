@@ -11,7 +11,7 @@ from .config import load
 from . import chart, feedback
 from .data import SourceError
 from .screener import screen, top_picks
-from .telegram import NotifyError, Telegram
+from .telegram import Console, NotifyError, Telegram
 from .validate import ValidationError, validate
 from .yahoo import Yahoo
 
@@ -118,10 +118,15 @@ def main(config_path="config.toml", state_path="alerts_state.json", feedback_pat
         seen.clear()
         seen["_day"] = str(date.today())
     fb = feedback.load(feedback_path)
-    tg, yahoo, analyzer = Telegram(cfg.keys["tg_token"], cfg.keys["tg_chat"]), Yahoo(), Analyzer(cfg.ai, cfg.keys)
+    console = "--console" in sys.argv or not {"tg_token", "tg_chat"} <= cfg.keys.keys()
+    if console:
+        log.info("console mode: printing alerts here (set TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID for Telegram)")
+    yahoo, analyzer = Yahoo(), Analyzer(cfg.ai, cfg.keys)
+    out = Console() if console else Telegram(cfg.keys["tg_token"], cfg.keys["tg_chat"])
     try:
-        feedback.sync(fb, tg, cfg.feedback.get("review_after_days", 5), yahoo, analyzer)
-        return run(cfg, yahoo, av, analyzer, tg, seen, fb, debug="--debug" in sys.argv)
+        if not console:  # reactions/post-mortems need Telegram
+            feedback.sync(fb, out, cfg.feedback.get("review_after_days", 5), yahoo, analyzer)
+        return run(cfg, yahoo, av, analyzer, out, seen, fb, debug="--debug" in sys.argv)
     finally:  # persist even if a later ticker raises
         state.write_text(json.dumps(seen))
         feedback.save(fb, feedback_path)

@@ -20,7 +20,7 @@ def tag(text):
     return "#" + re.sub(r"\W", "_", text)
 
 
-def format_pick(ticker, signal, reasoning, confidence=None, source=None, model=None, links=None, scn=None):
+def format_pick(ticker, signal, reasoning, confidence=None, source=None, model=None, links=None, scn=None, react=True):
     head = f"{ICON.get(signal, '')} {tag(ticker)} {tag(signal)}\n{signal.upper()}"
     if confidence is not None:
         head += f" · confidence {confidence:.0%}"
@@ -33,8 +33,31 @@ def format_pick(ticker, signal, reasoning, confidence=None, source=None, model=N
         text += f"\n\n🕒 Alerted {links['when']} @ {links['price']:.2f}"
         text += "".join(f"\n{label}: {links[k]}" for k, label in (("chart", "📈 Chart"), ("tradingview", "🔗 TradingView"))
                         if links.get(k))
-    text += "\n\nReact to this message: 👍 target hit · 👎 stop hit"
+    if react:
+        text += "\n\nReact to this message: 👍 target hit · 👎 stop hit"
     return text[:LIMIT]
+
+
+def check(ticker, signal, reasoning):
+    """V3: no alert without a pre-bull/pre-bear classification and non-empty reasoning."""
+    if signal not in SIGNALS:
+        raise NotifyError(f"refusing to send {ticker}: signal {signal!r} is not pre-bull/pre-bear")
+    if not (reasoning or "").strip():
+        raise NotifyError(f"refusing to send {ticker}: no reasoning")
+
+
+class Console:
+    """Prints alerts to stdout instead of Telegram (no bot token set, or --console). No reactions, so no feedback loop."""
+
+    def send_pick(self, pick, verdict):
+        check(pick["ticker"], verdict["signal"], verdict["reasoning"])
+        print(format_pick(pick["ticker"], verdict["signal"], verdict["reasoning"], verdict["confidence"],
+                          pick["snapshot"]["source"], verdict.get("model"), pick.get("links"), verdict.get("scenarios"),
+                          react=False), "\n" + "-" * 60, flush=True)
+        return None  # no message id: feedback.record skips it
+
+    def send_text(self, text):
+        print(text, "\n" + "-" * 60, flush=True)
 
 
 class Telegram:
@@ -45,10 +68,7 @@ class Telegram:
 
     def send(self, ticker, signal, reasoning, confidence=None, source=None, model=None, links=None, scn=None):
         """V3: refuses without a pre-bull/pre-bear classification and non-empty reasoning. Returns message_id."""
-        if signal not in SIGNALS:
-            raise NotifyError(f"refusing to send {ticker}: signal {signal!r} is not pre-bull/pre-bear")
-        if not (reasoning or "").strip():
-            raise NotifyError(f"refusing to send {ticker}: no reasoning")
+        check(ticker, signal, reasoning)
         try:
             r = self.http.post(self.url, json={"chat_id": self.chat_id, "text": format_pick(
                 ticker, signal, reasoning, confidence, source, model, links, scn)}, timeout=15)

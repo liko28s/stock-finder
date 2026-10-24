@@ -2,6 +2,8 @@
 (vol20, daily % stdev) sets the plausible band so the table can't drift into fantasy. Illustration, not a forecast."""
 import math
 
+from .prompts import load as load_prompt
+
 USD = 10
 HORIZONS = {"1w": 5, "2w": 10, "3w": 15, "4w": 20, "2m": 42, "6m": 126}  # trading days
 KEYS = ("worst", "expected", "best")
@@ -23,15 +25,7 @@ def prompt_block(pick):
     if not vol:
         return ""
     band = ", ".join(f"{h} ±{sigma_usd(vol, d):.2f}" for h, d in HORIZONS.items())
-    return f"""
-
-Sample trade: simulate a {USD} USD position opened at the close ({side(pick['signal'])}: long for pre-bull, short for pre-bear).
-Add "scenarios": an object keyed by horizon ("1w","2w","3w","4w","2m","6m"), each {{"worst": n, "expected": n, "best": n}}
-= profit/loss in USD from the position's point of view (losses negative), worst <= expected <= best.
-Daily volatility is {vol:.2f}%, so one standard deviation of P&L per horizon is (USD): {band}.
-Keep worst/best within about 2 sigma. Shade "expected" with the signal, confidence, trend (adx, macd, ret20d) and mean-reversion
-(zscore20, rsi) evidence: for a weak setup expected stays near 0; a long can lose at most {USD} USD. The receiver uses this to
-gauge best and worst cases, so be realistic, not optimistic. Illustration only, not a forecast."""
+    return "\n\n" + load_prompt("scenarios").format(USD=USD, side=side(pick["signal"]), vol=vol, band=band)
 
 
 def clean(scn, snapshot, signal):

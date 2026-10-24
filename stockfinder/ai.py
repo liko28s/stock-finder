@@ -6,6 +6,7 @@ import time
 import requests
 
 from . import scenarios
+from .prompts import load as load_prompt
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models"
@@ -14,19 +15,7 @@ SIGNALS = {"pre-bull", "pre-bear", "neutral"}
 
 log = logging.getLogger(__name__)
 
-PROMPT = """You are an equity analyst advising a fund. A screener flagged {ticker} as {signal} ({why}).
-Data (fetched live from {source}):
-{data}
-
-Indicator notes: adx = trend strength (>25 trending), plus_di/minus_di = up/down pressure, atr_pct = daily range as % of price, macd_hist = macd - macd_signal, obv_slope20 = volume-flow direction (-1..1), ker10 = trend efficiency (1 = clean trend, 0 = noise), zscore20 = stretch from the 20d mean (mean-reversion; |z|>2 stretched). ret1d/ret5d/ret20d = price change in % over 1/5/20 trading days. Some may be absent.
-
-Decide whether the setup is real. Use ONLY the data above. Every claim in "reasoning" must quote a number from it.
-Reply with a single JSON object, no prose, with exactly these keys:
-  "signal": "pre-bull" | "pre-bear" | "neutral"
-  "confidence": number 0..1
-  "reasoning": short string citing the numbers
-  "cited_metrics": object mapping metric name -> value copied from the data (e.g. {{"rsi": 27.4, "pe": 18.2}})
-  "scenarios": sample-trade table, described below (omit only if no volatility is given)"""
+PROMPT = load_prompt("analysis")  # stockfinder/prompts/analysis.md
 
 
 class AIError(Exception):
@@ -120,18 +109,19 @@ class Analyzer:
         backend = self.cfg["backend"]
         msgs = [{"role": "user", "content": prompt}]
         if backend == "openrouter":
-            r = self.http.post(OPENROUTER_URL, headers={"Authorization": f"Bearer {self.keys['openrouter']}"},
-                               json={"model": model or self.cfg["openrouter_model"], "messages": msgs,
-                                     "temperature": 0, "response_format": {"type": "json_object"}}, timeout=60)
+            post = lambda: self.http.post(OPENROUTER_URL, headers={"Authorization": f"Bearer {self.keys['openrouter']}"},
+                                          json={"model": model or self.cfg["openrouter_model"], "messages": msgs,
+                                                "temperature": 0, "response_format": {"type": "json_object"}}, timeout=60)
             extract = lambda d: (d["choices"][0]["message"]["content"], (d.get("usage") or {}).get("total_tokens", 0))
         elif backend == "ollama":
-            r = self.http.post(self.cfg["ollama_url"] + "/api/chat",
-                               json={"model": self.cfg["ollama_model"], "messages": msgs, "stream": False,
-                                     "format": "json", "options": {"temperature": 0}}, timeout=300)
+            post = lambda: self.http.post(self.cfg["ollama_url"] + "/api/chat",
+                                          json={"model": self.cfg["ollama_model"], "messages": msgs, "stream": False,
+                                                "format": "json", "options": {"temperature": 0}}, timeout=300)
             extract = lambda d: (d["message"]["content"], d.get("prompt_eval_count", 0) + d.get("eval_count", 0))
         else:
             raise AIError(f"unknown backend: {backend}")
-        try:
+        try:  # connection errors too: a down backend fails this pick, not the whole run
+            r = post()
             r.raise_for_status()
             return extract(r.json())
         except (requests.RequestException, ValueError, KeyError, IndexError, TypeError) as e:
