@@ -9,3 +9,4 @@ __pycache__/
 alerts_state.json
 .serena/
 feedback.json
+.codegraph/

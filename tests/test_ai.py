@@ -104,3 +104,14 @@ def test_unparsable_reply_also_rolls_over():
     http = Junk(listing=[])
     v = Analyzer({**CFG, "openrouter_fallbacks": ["b"]}, {"openrouter": "k"}, http).analyze(PICK)
     assert http.used == ["m", "b"] and v["model"] == "b"
+
+
+def test_postmortem_schema_and_rollover():
+    from stockfinder.ai import parse_postmortem
+    ok = json.dumps({"assessment": "lucky", "what_happened": "RSI 27 then +8%", "adjustments": ["raise volume_ratio"]})
+    assert parse_postmortem(ok)["assessment"] == "lucky"
+    for bad in ("nope", json.dumps({"assessment": "great", "what_happened": "x"}),
+                json.dumps({"assessment": "lucky", "what_happened": " "}),
+                json.dumps({"assessment": "lucky", "what_happened": "x", "adjustments": [1]})):
+        with pytest.raises(AIError):
+            parse_postmortem(bad)
