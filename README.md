@@ -307,5 +307,5 @@ All tuning lives in [`config.toml`](config.toml):
 With uv: `uv run --extra dev pytest -q`.
 
 The tests run offline (HTTP is faked) on Python 3.11–3.13 in [GitHub Actions](.github/workflows/tests.yml).
-Design invariants (no stale data, cited-data validation, never trade, secrets never logged, swappable AI
-backend) are listed in [`SPEC.md`](SPEC.md).
+Tests also guard the design invariants: no stale data, cited-data validation, never trade, secrets never
+logged, swappable AI backend.
