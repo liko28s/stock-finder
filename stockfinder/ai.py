@@ -50,6 +50,25 @@ def parse_verdict(text):
     return {k: v[k] for k in ("signal", "confidence", "reasoning", "cited_metrics")}
 
 
+ASSESSMENTS = {"good_call", "bad_call", "lucky", "unlucky", "inconclusive"}
+
+
+def parse_postmortem(text):
+    text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip())
+    try:
+        v = json.loads(text)
+    except ValueError as e:
+        raise AIError("reply is not JSON") from e
+    if not isinstance(v, dict) or v.get("assessment") not in ASSESSMENTS:
+        raise AIError("bad postmortem assessment")
+    if not isinstance(v.get("what_happened"), str) or not v["what_happened"].strip():
+        raise AIError("missing what_happened")
+    adj = v.get("adjustments", [])
+    if not isinstance(adj, list) or not all(isinstance(x, str) for x in adj):
+        raise AIError("bad adjustments")
+    return {"assessment": v["assessment"], "what_happened": v["what_happened"].strip(), "adjustments": adj}
+
+
 class Analyzer:
     """V7: backend picked by ai.backend; both paths share prompt and parse_verdict."""
 
@@ -99,17 +118,23 @@ class Analyzer:
         except (requests.RequestException, ValueError, KeyError, IndexError, TypeError) as e:
             raise AIError(f"{backend} call failed: {type(e).__name__}") from e
 
-    def analyze(self, pick):
-        """OpenRouter: roll over to the next model on call failure, rate limit or unparsable reply. Verdict is
-        tagged with the model that produced it."""
-        prompt = build_prompt(pick)
+    def _roll(self, prompt, parse, label):
+        """OpenRouter: roll over to the next model on call failure, rate limit or unparsable reply. Result is
+        tagged with the model that produced it. Ollama: single model."""
         if self.cfg["backend"] != "openrouter":
-            return parse_verdict(self._call(prompt))
+            return parse(self._call(prompt))
         errors = []
         for model in self._models():
             try:
-                return {**parse_verdict(self._call(prompt, model)), "model": model}
+                return {**parse(self._call(prompt, model)), "model": model}
             except AIError as e:
-                log.warning("%s: model %s failed (%s), trying next", pick["ticker"], model, e)
+                log.warning("%s: model %s failed (%s), trying next", label, model, e)
                 errors.append(f"{model}: {e}")
         raise AIError("all models failed: " + "; ".join(errors))
+
+    def analyze(self, pick):
+        return self._roll(build_prompt(pick), parse_verdict, pick["ticker"])
+
+    def postmortem(self, prompt, label):
+        """Same rollover, different reply schema (see parse_postmortem)."""
+        return self._roll(prompt, parse_postmortem, label)
