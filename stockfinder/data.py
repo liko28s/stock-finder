@@ -103,6 +103,7 @@ def technicals(closes, volumes, rsi, highs=None, lows=None):
         "sma20_prev": sum(closes[-21:-1]) / 20,
         "sma50_prev": sum(closes[-51:-1]) / 50,
         "volume_ratio": volumes[-1] / avg if avg else 0.0,
+        **{f"ret{n}d": (closes[-1] / closes[-1 - n] - 1) * 100 for n in (1, 5, 20)},
         **extras(closes, volumes, highs, lows),
     }
 
