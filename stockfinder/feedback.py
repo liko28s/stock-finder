@@ -5,6 +5,9 @@ import logging
 import time
 from pathlib import Path
 
+from . import postmortem
+from .ai import AIError
+from .data import SourceError
 from .telegram import NotifyError
 
 log = logging.getLogger(__name__)
@@ -21,10 +24,14 @@ def save(state, path="feedback.json"):
     Path(path).write_text(json.dumps(state, indent=1))
 
 
-def record(state, message_id, ticker, signal, now=None):
+def record(state, message_id, ticker, signal, now=None, pick=None, verdict=None):
+    """pick/verdict kept so the post-mortem can replay the signal-time data and reasoning."""
     if message_id is not None:
-        state["alerts"].append({"id": message_id, "ticker": ticker, "signal": signal, "ts": time.time() if now is None else now,
-                                "outcome": None, "reminder_id": None})
+        state["alerts"].append({"id": message_id, "ticker": ticker, "signal": signal,
+                                "ts": time.time() if now is None else now, "outcome": None, "reminder_id": None,
+                                "snapshot": pick and pick["snapshot"], "reasoning": verdict and verdict["reasoning"],
+                                "confidence": verdict and verdict["confidence"], "model": verdict and verdict.get("model"),
+                                "postmortem": None})
 
 
 def apply_reactions(state, updates):
@@ -45,7 +52,7 @@ def apply_reactions(state, updates):
         if new is None and emojis:
             continue
         if alert["outcome"] != new:
-            alert["outcome"], changed = new, changed + 1
+            alert["outcome"], alert["postmortem"], changed = new, None, changed + 1  # new outcome -> redo review
     return changed
 
 
@@ -64,12 +71,30 @@ def remind_due(state, tg, days, now=None):
     return sent
 
 
-def sync(state, tg, review_after_days, now=None):
-    """Poll reactions, then nudge for overdue alerts. Reaction polling failure is logged, never fatal."""
+def review_resolved(state, tg, yahoo, analyzer):
+    """Post-mortem for every alert with an outcome but no review yet; failures retry next scan."""
+    done = 0
+    for a in state["alerts"]:
+        if not a["outcome"] or a["postmortem"] or not a.get("snapshot"):
+            continue
+        try:
+            pm = postmortem.analyze(a, yahoo, analyzer)
+            tg.reply(a["id"], postmortem.format_message(a, pm))
+            a["postmortem"] = pm
+            done += 1
+        except (SourceError, AIError, NotifyError) as e:
+            log.error("%s: post-mortem failed, will retry: %s", a["ticker"], e)
+    return done
+
+
+def sync(state, tg, review_after_days, yahoo=None, analyzer=None, now=None):
+    """Poll reactions, review resolved alerts, then nudge for overdue ones. Poll failure is logged, never fatal."""
     try:
         apply_reactions(state, tg.reaction_updates(state["offset"]))
     except NotifyError as e:
         log.error("reaction poll failed: %s", e)
+    if yahoo and analyzer:
+        review_resolved(state, tg, yahoo, analyzer)
     return remind_due(state, tg, review_after_days, now)
 
 
