@@ -130,3 +130,11 @@ def test_listing_ranks_response_format_first_then_context():
     listing = [{**free("small", params=()), "context_length": 10}, {**free("big", params=()), "context_length": 99},
                {**free("rf"), "context_length": 5}]
     assert Analyzer(CFG, {}, RollHttp(listing=listing))._free_models() == ["rf", "big", "small"]
+
+
+def test_backend_down_is_aierror_not_crash():
+    class Down:
+        def post(self, *a, **k):
+            raise requests.ConnectionError("refused")
+    with pytest.raises(AIError):
+        Analyzer({**CFG, "backend": "ollama"}, {}, Down()).analyze(PICK)
