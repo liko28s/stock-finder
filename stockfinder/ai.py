@@ -15,6 +15,8 @@ PROMPT = """You are an equity analyst advising a fund. A screener flagged {ticke
 Data (fetched live from {source}):
 {data}
 
+Indicator notes: adx = trend strength (>25 trending), plus_di/minus_di = up/down pressure, atr_pct = daily range as % of price, macd_hist = macd - macd_signal, obv_slope20 = volume-flow direction (-1..1), ker10 = trend efficiency (1 = clean trend, 0 = noise), zscore20 = stretch from the 20d mean (mean-reversion; |z|>2 stretched). Some may be absent.
+
 Decide whether the setup is real. Use ONLY the data above. Every claim in "reasoning" must quote a number from it.
 Reply with a single JSON object, no prose, with exactly these keys:
   "signal": "pre-bull" | "pre-bear" | "neutral"
@@ -27,9 +29,14 @@ class AIError(Exception):
     """Backend call failed or reply didn't match the verdict schema."""
 
 
+def rounded(d):
+    """4-decimal floats in prompts: fewer tokens, well inside the validator's 1% tolerance."""
+    return {k: round(v, 4) if isinstance(v, float) else v for k, v in d.items()}
+
+
 def build_prompt(pick):
     s = pick["snapshot"]
-    data = json.dumps({"fundamentals": s["fundamentals"], "technicals": s["technicals"]}, indent=1)
+    data = json.dumps({"fundamentals": rounded(s["fundamentals"]), "technicals": rounded(s["technicals"])}, indent=1)
     return PROMPT.format(ticker=pick["ticker"], signal=pick["signal"], source=s["source"], data=data)
 
 

@@ -16,7 +16,7 @@ class FakeHttp:
 
 def _series(n=60):
     return {f"2026-01-{i + 1:02d}" if i < 31 else f"2026-02-{i - 30:02d}":
-            {"4. close": str(10 + i * 0.1), "5. volume": "100" if i < n - 1 else "300"} for i in range(n)}
+            {"2. high": str(10.5 + i * 0.1), "3. low": str(9.5 + i * 0.1), "4. close": str(10 + i * 0.1), "5. volume": "100" if i < n - 1 else "300"} for i in range(n)}
 
 
 ROUTES = {

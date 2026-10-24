@@ -26,6 +26,13 @@ Install it:
 
 Keep the interval above `ttl_seconds` in `config.toml`; every run refetches, so nothing stale is reused (V1).
 
+## Indicators
+
+The AI sees (computed from daily OHLCV): RSI14, SMA20/50, volume ratio, MACD 12/26/9, ATR14 (+ % of price),
+ADX14 with +DI/-DI, OBV slope (20d), Kaufman efficiency ratio (10d), 20d z-score (mean-reversion stretch).
+Indicators that need more history than the source returned are omitted, not faked. They inform the AI and the
+post-mortem; the screener's pre-bull/pre-bear filter is unchanged.
+
 ## Alerts and feedback
 
 Each alert carries `#TICKER` and `#pre_bull`/`#pre_bear` hashtags: tap one in Telegram to list every alert for it.

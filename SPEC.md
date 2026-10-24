@@ -47,6 +47,7 @@ T13|x|OpenRouter model rollover — configured model, explicit fallbacks, then a
 T14|x|Telegram messages: #TICKER + #signal hashtags, model/source footer, return message_id|V3
 T15|x|human feedback — 👍=TP hit, 👎=SL hit via message_reaction updates; reminder after N days; hit-rate summary|I.telegram,V5
 T16|x|post-mortem on reaction — replay signal-time data+reasoning, price path since alert, AI explains outcome + suggests adjustments, reply under alert|T15,V2,V5
+T17|x|more indicators in snapshot + prompt: MACD(12/26/9), ATR14, ADX14 (+DI/-DI), OBV slope, KER10, 20d z-score (mean reversion); skipped when history too short|V1,V2
 
 ## §B bugs
 id|date|cause|fix
