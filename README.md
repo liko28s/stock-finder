@@ -32,6 +32,13 @@ Each alert carries `#TICKER` and `#pre_bull`/`#pre_bear` hashtags: tap one in Te
 
 React to an alert: 👍 = target hit, 👎 = stop hit. Each scan polls reactions (`feedback.json`) and, after
 `feedback.review_after_days`, replies under unresolved alerts asking how it went. Reacting on the reminder works too.
+When you react, the next scan runs a post-mortem and replies under the alert: it replays the signal-time
+indicators and original reasoning, adds the daily price path since (best/worst move computed in code), and the AI
+says what happened, rates the call (good/bad/lucky/unlucky/inconclusive) and suggests adjustments to test. It
+challenges your reaction if the prices disagree. Changing your reaction triggers a fresh review.
+
+Group chats: the bot must be an admin to receive reactions.
+
 Hit rate per signal: `.venv/bin/python -m stockfinder.feedback`.
 
 Don't set a Telegram webhook on the bot; reactions are read with `getUpdates`.

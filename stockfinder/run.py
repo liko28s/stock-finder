@@ -67,7 +67,7 @@ def run(cfg, primary, fallback, analyzer, notifier, last_signals=None, fb_state=
             message_id = notifier.send_pick(pick, verdict)
             seen[tk] = verdict["signal"]
             if fb_state is not None:
-                feedback.record(fb_state, message_id, tk, verdict["signal"])
+                feedback.record(fb_state, message_id, tk, verdict["signal"], pick=pick, verdict=verdict)
             sent += 1
         except NotifyError as e:
             log.error("%s: alert failed: %s", tk, e)
@@ -82,10 +82,10 @@ def main(config_path="config.toml", state_path="alerts_state.json", feedback_pat
     state = Path(state_path)
     seen = json.loads(state.read_text()) if state.exists() else {}
     fb = feedback.load(feedback_path)
-    tg = Telegram(cfg.keys["tg_token"], cfg.keys["tg_chat"])
+    tg, yahoo, analyzer = Telegram(cfg.keys["tg_token"], cfg.keys["tg_chat"]), Yahoo(), Analyzer(cfg.ai, cfg.keys)
     try:
-        feedback.sync(fb, tg, cfg.feedback.get("review_after_days", 5))
-        return run(cfg, Yahoo(), av, Analyzer(cfg.ai, cfg.keys), tg, seen, fb)
+        feedback.sync(fb, tg, cfg.feedback.get("review_after_days", 5), yahoo, analyzer)
+        return run(cfg, yahoo, av, analyzer, tg, seen, fb)
     finally:  # persist even if a later ticker raises
         state.write_text(json.dumps(seen))
         feedback.save(fb, feedback_path)

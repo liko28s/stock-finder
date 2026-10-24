@@ -46,6 +46,7 @@ T12|x|alert dedupe — persist last signal per ticker, skip re-notify same ticke
 T13|x|OpenRouter model rollover — configured model, explicit fallbacks, then any free model listing response_format; roll on call failure/429/unparsable reply|I.openrouter,V7
 T14|x|Telegram messages: #TICKER + #signal hashtags, model/source footer, return message_id|V3
 T15|x|human feedback — 👍=TP hit, 👎=SL hit via message_reaction updates; reminder after N days; hit-rate summary|I.telegram,V5
+T16|x|post-mortem on reaction — replay signal-time data+reasoning, price path since alert, AI explains outcome + suggests adjustments, reply under alert|T15,V2,V5
 
 ## §B bugs
 id|date|cause|fix
