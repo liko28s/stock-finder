@@ -60,5 +60,6 @@ disables discovery. The alert footer names the model that answered.
 
 - `universe.tickers` — always scanned.
 - `universe.screens` — Yahoo predefined screens for discovery (`[]` disables).
+- `thresholds.move_pct` — a 1-day move of at least this % on high volume is a momentum pick (RSI/MA extremes win when both fire; remove to disable).
 - `universe.max_tickers` — cap on total scanned.
 - `ai.backend` — `openrouter` or `ollama`, same output contract either way.

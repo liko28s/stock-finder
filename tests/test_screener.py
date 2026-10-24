@@ -53,3 +53,34 @@ def test_fresh_data_passes_and_source_failure_logged(caplog):
         picks = screen(["OK", "BAD"], fetch, TH)
     assert [p["ticker"] for p in picks] == ["OK"] and picks[0]["signal"] == "pre-bull"
     assert "skip BAD" in caplog.text
+
+
+TM = {**TH, "move_pct": 5.0}
+
+
+def mv(r1, **kw):
+    s = snap(**kw)
+    s["technicals"]["ret1d"] = r1
+    return s
+
+
+def test_big_move_with_volume_is_momentum_pick():
+    from stockfinder.screener import classify_ex
+    assert classify_ex(mv(8.2), TM) == ("pre-bull", "momentum")
+    assert classify_ex(mv(-11.2), TM) == ("pre-bear", "momentum")
+
+
+def test_momentum_needs_size_volume_and_threshold_set():
+    assert classify(mv(4.9), TM) is None  # too small
+    assert classify(mv(8.2, vol=1.0), TM) is None  # unconfirmed by volume
+    assert classify(mv(8.2), TH) is None  # move_pct unset: feature off
+
+
+def test_extreme_takes_priority_over_move():
+    from stockfinder.screener import classify_ex
+    assert classify_ex(mv(-11.0, rsi=22), TM) == ("pre-bull", "extreme")  # capitulation stays an oversold call
+    assert classify(mv(8.0, rsi=25, s20=10, s50=11, p20=11.5, p50=11), TM) is None  # conflict still no call
+
+
+def test_pick_carries_trigger():
+    assert screen(["X"], lambda t: mv(8.2), TM)[0]["trigger"] == "momentum"

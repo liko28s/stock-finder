@@ -1,4 +1,5 @@
 import logging
+from itertools import zip_longest
 from datetime import datetime, timezone
 
 import yfinance
@@ -18,17 +19,17 @@ class Yahoo:
 
     def discover(self, screens, count=50):
         """Symbols from Yahoo predefined screens (most_actives etc). One screen failing never aborts the rest."""
-        out = []
+        lists = []
         for s in screens:
             try:
                 r = self.screen_fn(s, count=count)
             except Exception as e:  # unofficial endpoint: any failure just skips that screen
                 log.warning("discover %s: %s", s, type(e).__name__)
                 continue
-            for q in (r.get("quotes") if isinstance(r, dict) else r) or []:
-                if q.get("symbol"):
-                    out.append(q["symbol"])
-        return out
+            lists.append([q["symbol"] for q in (r.get("quotes") if isinstance(r, dict) else r) or []
+                          if q.get("symbol")])
+        # interleave so a max_tickers cap takes the top of every screen, not all of the first one
+        return [x for row in zip_longest(*lists) for x in row if x]
 
     def fundamentals(self, ticker):
         try:
