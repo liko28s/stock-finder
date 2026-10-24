@@ -41,7 +41,8 @@ class AlphaVantage:
         days = sorted(d)  # ISO dates, oldest first
         closes = [float(d[k]["4. close"]) for k in days]
         vols = [float(d[k]["5. volume"]) for k in days]
-        return technicals(closes, vols, rsi(closes))
+        highs, lows = [float(d[k]["2. high"]) for k in days], [float(d[k]["3. low"]) for k in days]
+        return technicals(closes, vols, rsi(closes), highs, lows)
 
     def snapshot(self, ticker):
         return snapshot(ticker, "alphavantage", self.fundamentals(ticker), self.technicals(ticker))

@@ -3,7 +3,7 @@ data at signal time, the original reasoning, and the price path since; excursion
 import json
 from datetime import datetime, timezone
 
-from .ai import AIError
+from .ai import AIError, rounded
 from .data import SourceError
 
 PROMPT = """You are reviewing a past alert for an advisory stock screener. Be honest: if the evidence does not
@@ -47,8 +47,8 @@ def build_prompt(alert, bars, now_tech):
         ticker=alert["ticker"], signal=alert["signal"], confidence=alert.get("confidence"),
         sent=datetime.fromtimestamp(alert["ts"], timezone.utc).date(), entry=round(entry, 2),
         reasoning=alert.get("reasoning", "n/a"),
-        signal_data=json.dumps({"fundamentals": snap["fundamentals"], "technicals": snap["technicals"]}, indent=1),
-        outcome=ICON[alert["outcome"]], bars=json.dumps(bars), now_data=json.dumps(now_tech, indent=1),
+        signal_data=json.dumps({"fundamentals": rounded(snap["fundamentals"]), "technicals": rounded(snap["technicals"])}, indent=1),
+        outcome=ICON[alert["outcome"]], bars=json.dumps(bars), now_data=json.dumps(rounded(now_tech), indent=1),
         **excursions(alert["signal"], entry, bars))
 
 
