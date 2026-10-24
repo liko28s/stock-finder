@@ -22,8 +22,12 @@ def test_loads_toml_and_env(tmp_path):
 
 
 def test_missing_key_raises(tmp_path):
-    with pytest.raises(KeyError, match="TELEGRAM_BOT_TOKEN"):
-        load(_write(tmp_path), {})
+    with pytest.raises(KeyError, match="OPENROUTER_API_KEY"):
+        load(_write(tmp_path, '[ai]\nbackend = "openrouter"\n'), {})
+
+
+def test_telegram_optional(tmp_path):  # no bot -> console mode
+    assert "tg_token" not in load(_write(tmp_path), {}).keys
 
 
 def test_keys_not_logged(tmp_path, caplog):

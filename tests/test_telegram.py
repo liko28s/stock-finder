@@ -1,7 +1,7 @@
 import pytest
 import requests
 
-from stockfinder.telegram import LIMIT, NotifyError, Telegram, format_pick
+from stockfinder.telegram import LIMIT, Console, NotifyError, Telegram, format_pick
 
 from test_finnhub import Resp
 
@@ -70,3 +70,12 @@ def test_send_text_plain_and_failure_safe():
     assert http.calls[0][1]["text"] == "digest"
     with pytest.raises(NotifyError):
         tg(FakeHttp(Resp({"ok": False}))).send_text("x")
+
+
+def test_console_prints_pick_and_keeps_v3(capsys):
+    pick = {"ticker": "AAPL", "snapshot": {"source": "yahoo"}}
+    assert Console().send_pick(pick, {"signal": "pre-bull", "reasoning": "RSI 27.4", "confidence": 0.7}) is None
+    out = capsys.readouterr().out
+    assert "#AAPL" in out and "RSI 27.4" in out and "React" not in out
+    with pytest.raises(NotifyError):
+        Console().send_pick(pick, {"signal": "neutral", "reasoning": "x", "confidence": 0.5})
