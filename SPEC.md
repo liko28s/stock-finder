@@ -43,6 +43,9 @@ T9|x|scheduling (cron or internal loop) for periodic scans|T8
 T10|x|Yahoo client (yfinance) — fundamentals, technicals, universe from config ticker list; replace Finnhub as primary in orchestrator|I.yahoo,V1,V4
 T11|x|ticker discovery — yf.screen predefined screens (config list), union w/ config tickers, dedupe, cap count; orchestrator scans the union|I.yahoo,V1
 T12|x|alert dedupe — persist last signal per ticker, skip re-notify same ticker+signal on consecutive scans (monitor runs repeatedly)|V3
+T13|x|OpenRouter model rollover — configured model, explicit fallbacks, then any free model listing response_format; roll on call failure/429/unparsable reply|I.openrouter,V7
+T14|x|Telegram messages: #TICKER + #signal hashtags, model/source footer, return message_id|V3
+T15|x|human feedback — 👍=TP hit, 👎=SL hit via message_reaction updates; reminder after N days; hit-rate summary|I.telegram,V5
 
 ## §B bugs
 id|date|cause|fix

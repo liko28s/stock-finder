@@ -26,6 +26,22 @@ Install it:
 
 Keep the interval above `ttl_seconds` in `config.toml`; every run refetches, so nothing stale is reused (V1).
 
+## Alerts and feedback
+
+Each alert carries `#TICKER` and `#pre_bull`/`#pre_bear` hashtags: tap one in Telegram to list every alert for it.
+
+React to an alert: 👍 = target hit, 👎 = stop hit. Each scan polls reactions (`feedback.json`) and, after
+`feedback.review_after_days`, replies under unresolved alerts asking how it went. Reacting on the reminder works too.
+Hit rate per signal: `.venv/bin/python -m stockfinder.feedback`.
+
+Don't set a Telegram webhook on the bot; reactions are read with `getUpdates`.
+
+## AI model rollover
+
+With `ai.backend = "openrouter"`, a failing model (error, rate limit, unparsable reply) rolls over to
+`openrouter_fallbacks`, then to any other free OpenRouter model, up to `max_model_tries`. `auto_free_models = false`
+disables discovery. The alert footer names the model that answered.
+
 ## Config
 
 - `universe.tickers` — always scanned.
