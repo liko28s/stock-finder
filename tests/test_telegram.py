@@ -62,3 +62,11 @@ def test_hashtags_for_search_and_reaction_hint():
 
 def test_send_returns_message_id():
     assert tg(FakeHttp(Resp({"ok": True, "result": {"message_id": 7}}))).send("AAPL", "pre-bull", "RSI 27.4") == 7
+
+
+def test_send_text_plain_and_failure_safe():
+    http = FakeHttp()
+    tg(http).send_text("digest")
+    assert http.calls[0][1]["text"] == "digest"
+    with pytest.raises(NotifyError):
+        tg(FakeHttp(Resp({"ok": False}))).send_text("x")

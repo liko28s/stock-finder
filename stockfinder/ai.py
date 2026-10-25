@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+import time
 
 import requests
 
@@ -86,16 +87,21 @@ class Analyzer:
 
     def __init__(self, ai_cfg, keys, http=requests):
         self.cfg, self.keys, self.http = ai_cfg, keys, http
+        self.i = 0  # index of the last winning model
+        self.stats = {}  # model -> {calls, ok, secs, tokens}
 
     def _free_models(self):
-        """Free OpenRouter models that accept response_format, fetched once per Analyzer. Failure -> []."""
+        """Free OpenRouter models, fetched once per Analyzer; ones that advertise response_format first, then by
+        context length (small models last). Many working models don't advertise it, so it only ranks. Failure -> []."""
         if not hasattr(self, "_free"):
             try:
                 r = self.http.get(OPENROUTER_MODELS_URL, timeout=30)
                 r.raise_for_status()
-                self._free = [m["id"] for m in r.json()["data"]
-                              if all(float(m["pricing"].get(k) or 1) == 0 for k in ("prompt", "completion"))
-                              and "response_format" in (m.get("supported_parameters") or [])]
+                free = [m for m in r.json()["data"]
+                        if all(float(m["pricing"].get(k) or 1) == 0 for k in ("prompt", "completion"))]
+                free.sort(key=lambda m: ("response_format" not in (m.get("supported_parameters") or []),
+                                         -(m.get("context_length") or 0)))
+                self._free = [m["id"] for m in free]
             except (requests.RequestException, ValueError, KeyError, TypeError):
                 log.warning("could not list free OpenRouter models, using configured ones only")
                 self._free = []
@@ -107,21 +113,22 @@ class Analyzer:
         ordered = [c["openrouter_model"], *c.get("openrouter_fallbacks", [])]
         if c.get("auto_free_models", True):
             ordered += self._free_models()
-        return list(dict.fromkeys(ordered))[:c.get("max_model_tries", MAX_TRIES)]
+        return list(dict.fromkeys(ordered))
 
     def _call(self, prompt, model=None):
+        """Returns (text, total_tokens)."""
         backend = self.cfg["backend"]
         msgs = [{"role": "user", "content": prompt}]
         if backend == "openrouter":
             r = self.http.post(OPENROUTER_URL, headers={"Authorization": f"Bearer {self.keys['openrouter']}"},
                                json={"model": model or self.cfg["openrouter_model"], "messages": msgs,
-                                     "temperature": 0, "response_format": {"type": "json_object"}}, timeout=120)
-            extract = lambda d: d["choices"][0]["message"]["content"]
+                                     "temperature": 0, "response_format": {"type": "json_object"}}, timeout=60)
+            extract = lambda d: (d["choices"][0]["message"]["content"], (d.get("usage") or {}).get("total_tokens", 0))
         elif backend == "ollama":
             r = self.http.post(self.cfg["ollama_url"] + "/api/chat",
                                json={"model": self.cfg["ollama_model"], "messages": msgs, "stream": False,
                                      "format": "json", "options": {"temperature": 0}}, timeout=300)
-            extract = lambda d: d["message"]["content"]
+            extract = lambda d: (d["message"]["content"], d.get("prompt_eval_count", 0) + d.get("eval_count", 0))
         else:
             raise AIError(f"unknown backend: {backend}")
         try:
@@ -131,18 +138,39 @@ class Analyzer:
             raise AIError(f"{backend} call failed: {type(e).__name__}") from e
 
     def _roll(self, prompt, parse, label):
-        """OpenRouter: roll over to the next model on call failure, rate limit or unparsable reply. Result is
-        tagged with the model that produced it. Ollama: single model."""
-        if self.cfg["backend"] != "openrouter":
-            return parse(self._call(prompt))
+        """OpenRouter: try up to max_model_tries models, rolling over on call failure, rate limit or unparsable
+        reply, and sticking to the last winner so a dead model isn't retried on every pick. Result is tagged with
+        the model that produced it. Ollama: single model. Per-model stats feed summary()."""
+        backend = self.cfg["backend"]
+        models = self._models() if backend == "openrouter" else [self.cfg.get("ollama_model", "ollama")]
         errors = []
-        for model in self._models():
+        for n in range(min(self.cfg.get("max_model_tries", MAX_TRIES), len(models))):
+            model = models[(self.i + n) % len(models)]
+            st = self.stats.setdefault(model, {"calls": 0, "ok": 0, "secs": 0.0, "tokens": 0})
+            st["calls"] += 1
+            t0 = time.monotonic()
             try:
-                return {**parse(self._call(prompt, model)), "model": model}
+                text, tokens = self._call(prompt, model)
+                result = parse(text)
             except AIError as e:
+                st["secs"] += time.monotonic() - t0
                 log.warning("%s: model %s failed (%s), trying next", label, model, e)
                 errors.append(f"{model}: {e}")
+                continue
+            dt = time.monotonic() - t0
+            st["ok"] += 1
+            st["secs"] += dt
+            st["tokens"] += tokens
+            log.info("%s: model=%s ok %.1fs tokens=%s", label, model, dt, tokens)
+            self.i = (self.i + n) % len(models)
+            return {**result, "model": model} if backend == "openrouter" else result
+        self.i = (self.i + 1) % len(models)  # all failed: start elsewhere next time
         raise AIError("all models failed: " + "; ".join(errors))
+
+    def summary(self):
+        """One line per model: calls/ok, total time, tokens. Empty if no queries were made."""
+        return "\n".join(f"{m}: {s['ok']}/{s['calls']} ok, {s['secs']:.0f}s, {s['tokens']} tok"
+                         for m, s in self.stats.items())
 
     def analyze(self, pick):
         return self._roll(build_prompt(pick), parse_verdict, pick["ticker"])

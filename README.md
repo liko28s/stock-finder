@@ -10,18 +10,18 @@ Run once: `.venv/bin/python -m stockfinder.run`
 ## Monitor (recurring)
 
 cron runs the scan repeatedly. `alerts_state.json` records the last signal per ticker,
-so a pick is alerted once, not re-sent every scan (until its signal changes).
+so a pick is alerted once per day, not re-sent every scan (the state resets each morning).
 
-Every 30 min, weekdays, US market hours (13:00-21:00 UTC ≈ 9-5 ET):
+Every 30 min, weekdays, US market hours (cron uses LOCAL time: 8:00-15:30 CDT ≈ 9:00-16:30 ET; adjust to your TZ):
 
 ```
-*/30 13-21 * * 1-5  cd /Users/sumapaz/Code/stock-finder && .venv/bin/python -m stockfinder.run >> scan.log 2>&1
+*/30 8-15 * * 1-5  cd /Users/sumapaz/Code/stock-finder && .venv/bin/python -m stockfinder.run >> scan.log 2>&1
 ```
 
 Install it:
 
 ```
-(crontab -l 2>/dev/null; echo '*/30 13-21 * * 1-5  cd /Users/sumapaz/Code/stock-finder && .venv/bin/python -m stockfinder.run >> scan.log 2>&1') | crontab -
+(crontab -l 2>/dev/null; echo '*/30 8-15 * * 1-5  cd /Users/sumapaz/Code/stock-finder && .venv/bin/python -m stockfinder.run >> scan.log 2>&1') | crontab -
 ```
 
 Keep the interval above `ttl_seconds` in `config.toml`; every run refetches, so nothing stale is reused (V1).
@@ -61,10 +61,15 @@ Hit rate per signal: `.venv/bin/python -m stockfinder.feedback`.
 
 Don't set a Telegram webhook on the bot; reactions are read with `getUpdates`.
 
+## Digest and debug
+
+Without flags you get alerts plus one daily digest (15:00+ local) if no alert fired that day. `python -m stockfinder.run
+--debug` also sends every non-alert outcome and the run summary (scan counts, per-model calls/time/tokens) to Telegram.
+
 ## AI model rollover
 
 With `ai.backend = "openrouter"`, a failing model (error, rate limit, unparsable reply) rolls over to
-`openrouter_fallbacks`, then to any other free OpenRouter model, up to `max_model_tries`. `auto_free_models = false`
+`openrouter_fallbacks`, then to any other free OpenRouter model, up to `max_model_tries`, sticking to the last model that worked and logging per-model calls, time and tokens. `auto_free_models = false`
 disables discovery. The alert footer names the model that answered.
 
 ## Config

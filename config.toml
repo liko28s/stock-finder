@@ -1,5 +1,5 @@
 [universe]
-tickers = ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "JPM", "XOM", "INTC", "GOOG", "SMTC", "QBTS", "TSLA", "AMD", "JBLU"]  # Yahoo has no constituents API
+tickers = ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "JPM", "XOM", "INTC", "GOOG", "SMTC", "QBTS", "TSLA", "AMD", "JBLU", "PLTR", "GOLD", "GC=F", "GLD"]  # Yahoo has no constituents API
 screens = ["most_actives", "day_gainers", "day_losers"]  # Yahoo predefined screens to discover extra candidates; [] disables
 max_tickers = 120           # cap on total scanned (config + discovered), API politeness
 
@@ -14,9 +14,9 @@ ttl_seconds = 900      # max age of fetched data (V1)
 [ai]
 backend = "openrouter" # or "ollama"
 openrouter_model = "nvidia/nemotron-3-ultra-550b-a55b:free"  # tried first
-openrouter_fallbacks = []   # optional explicit models tried next
+openrouter_fallbacks = ["google/gemma-4-31b-it:free", "google/gemma-4-26b-a4b-it:free"]  # explicit models tried next
 auto_free_models = true     # then roll over to any other free OpenRouter model
-max_model_tries = 5         # models tried per pick
+max_model_tries = 4         # models tried per pick (60s timeout each); sticks to the last winner
 ollama_model = "openbmb/minicpm5"
 ollama_url = "http://localhost:11434"
 

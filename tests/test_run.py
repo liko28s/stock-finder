@@ -1,6 +1,7 @@
 import logging
 import re
 import time
+from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -45,7 +46,10 @@ class Analyzer:
 
 class Notifier:
     def __init__(self):
-        self.sent = []
+        self.sent, self.texts = [], []
+
+    def send_text(self, text):
+        self.texts.append(text)
 
     def send_pick(self, pick, verdict):
         self.sent.append(pick["ticker"])
@@ -148,3 +152,24 @@ def test_no_trade_api_imported():
     """V5: advisory only. No broker libs or order endpoints anywhere in the package."""
     src = "\n".join(p.read_text() for p in Path("stockfinder").glob("*.py"))
     assert not re.search(r"alpaca|ib_insync|ccxt|robin_hood|place_order|submit_order|/orders", src, re.I)
+
+
+LATE, EARLY = datetime(2026, 10, 19, 15, 30), datetime(2026, 10, 19, 9, 0)
+
+
+def test_digest_once_when_quiet_and_debug_sends_all():
+    n, seen = Notifier(), {}
+    run(CFG, Src(), None, Analyzer(err=AIError("x")), n, seen, now=EARLY)
+    assert n.texts == []                                   # too early
+    run(CFG, Src(), None, Analyzer(err=AIError("x")), n, seen, now=LATE)
+    run(CFG, Src(), None, Analyzer(err=AIError("x")), n, seen, now=LATE)
+    assert len(n.texts) == 1 and n.texts[0].startswith("Daily digest")
+    n = Notifier()
+    run(CFG, Src(), None, Analyzer(err=AIError("x")), n, {}, debug=True, now=LATE)
+    assert any("unusable" in t for t in n.texts) and any("scanned" in t for t in n.texts)
+
+
+def test_no_digest_after_alert():
+    n, seen = Notifier(), {}
+    run(CFG, Src(), None, Analyzer(GOOD), n, seen, now=LATE)
+    assert n.texts == []

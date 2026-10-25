@@ -83,7 +83,7 @@ def test_rolls_to_next_free_model_on_failure():
     listing = [free("paid", "0.5"), free("nojson", params=()), free("f1"), free("f2")]
     http = RollHttp(bad={"m", "f1"}, listing=listing)
     v = Analyzer({**CFG, "auto_free_models": True}, {"openrouter": "k"}, http).analyze(PICK)
-    assert http.used == ["m", "f1", "f2"] and v["model"] == "f2"  # paid + no-response_format models skipped
+    assert http.used == ["m", "f1", "f2"] and v["model"] == "f2"  # paid skipped; response_format models ranked before nojson
 
 
 def test_listing_failure_uses_configured_only():
@@ -115,3 +115,18 @@ def test_postmortem_schema_and_rollover():
                 json.dumps({"assessment": "lucky", "what_happened": "x", "adjustments": [1]})):
         with pytest.raises(AIError):
             parse_postmortem(bad)
+
+
+def test_sticks_to_last_winner_and_reports_stats():
+    http = RollHttp(bad={"m"}, listing=[])
+    a = Analyzer({**CFG, "openrouter_fallbacks": ["good"]}, {"openrouter": "k"}, http)
+    a.analyze(PICK)
+    a.analyze(PICK)
+    assert http.used == ["m", "good", "good"]  # 2nd pick doesn't retry the dead model
+    assert a.stats["m"]["ok"] == 0 and a.stats["good"]["ok"] == 2 and "good: 2/2 ok" in a.summary()
+
+
+def test_listing_ranks_response_format_first_then_context():
+    listing = [{**free("small", params=()), "context_length": 10}, {**free("big", params=()), "context_length": 99},
+               {**free("rf"), "context_length": 5}]
+    assert Analyzer(CFG, {}, RollHttp(listing=listing))._free_models() == ["rf", "big", "small"]

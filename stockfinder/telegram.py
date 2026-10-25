@@ -88,3 +88,14 @@ class Telegram:
                          "getUpdates")
         return [u for u in res if str(u.get("message_reaction", {}).get("chat", {}).get("id")) == str(self.chat_id)
                 or "message_reaction" not in u]
+
+    def send_text(self, text):
+        """Plain status message (digest/debug); picks must go through send() (V3)."""
+        try:
+            r = self.http.post(self.url, json={"chat_id": self.chat_id, "text": text[:LIMIT]}, timeout=15)
+            r.raise_for_status()
+            ok = r.json().get("ok")
+        except (requests.RequestException, ValueError) as e:
+            raise NotifyError(f"telegram send failed: {type(e).__name__}") from e
+        if not ok:
+            raise NotifyError("telegram rejected status message")
