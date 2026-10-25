@@ -84,3 +84,18 @@ def test_extreme_takes_priority_over_move():
 
 def test_pick_carries_trigger():
     assert screen(["X"], lambda t: mv(8.2), TM)[0]["trigger"] == "momentum"
+
+
+def test_top_picks_ranks_by_relevance_and_caps(caplog):
+    from stockfinder.screener import top_picks
+    ps = [{"ticker": t, "score": sc} for t, sc in (("A", 3), ("B", 9), ("C", 5))]
+    with caplog.at_level(logging.INFO):
+        assert [p["ticker"] for p in top_picks(ps, 2)] == ["B", "C"]
+    assert "dropped: A" in caplog.text
+    assert len(top_picks(ps, None)) == 3
+
+
+def test_relevance_prefers_big_volume_backed_moves():
+    from stockfinder.screener import relevance
+    assert relevance(mv(8.2, vol=3.0)) > relevance(mv(8.2, vol=1.5)) > relevance(mv(5.0, vol=1.5))
+    assert relevance(mv(0.5, rsi=22)) > relevance(mv(0.5, rsi=45))  # oversold extreme still ranks

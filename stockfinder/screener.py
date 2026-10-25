@@ -30,6 +30,21 @@ def classify(snap, th):
     return classify_ex(snap, th)[0]
 
 
+def relevance(snap):
+    """Ranking score: volume ratio x the bigger of the 1-day move (%) and RSI distance from 50 (/4, so RSI 22 ~ 7).
+    ponytail: hand-picked blend, tune against 👍/👎 hit rates once there is feedback data."""
+    t = snap["technicals"]
+    return t["volume_ratio"] * max(abs(t.get("ret1d") or 0.0), abs(t["rsi"] - 50) / 4)
+
+
+def top_picks(picks, n):
+    """Most relevant n picks (n unset = all). Only these get an AI call."""
+    ranked = sorted(picks, key=lambda p: p["score"], reverse=True)
+    if n and len(ranked) > n:
+        log.info("keeping top %d of %d picks, dropped: %s", n, len(ranked), ", ".join(p["ticker"] for p in ranked[n:]))
+    return ranked[:n] if n else ranked
+
+
 def screen(tickers, fetch, th, now=time.time):
     """fetch(ticker) -> snapshot. V1: snapshots older than ttl_seconds are dropped, never reused."""
     picks = []
@@ -45,5 +60,5 @@ def screen(tickers, fetch, th, now=time.time):
             continue
         signal, trigger = classify_ex(snap, th)
         if signal:
-            picks.append({"ticker": tk, "signal": signal, "trigger": trigger, "snapshot": snap})
+            picks.append({"ticker": tk, "signal": signal, "trigger": trigger, "score": relevance(snap), "snapshot": snap})
     return picks
