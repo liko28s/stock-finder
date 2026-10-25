@@ -90,6 +90,11 @@ def extras(closes, volumes, highs=None, lows=None):
     return out
 
 
+def _stdev(xs):
+    m = sum(xs) / len(xs)
+    return (sum((x - m) ** 2 for x in xs) / len(xs)) ** 0.5
+
+
 def technicals(closes, volumes, rsi, highs=None, lows=None):
     """Derive the indicator set from raw series. Volume ratio = last / avg of prior 20."""
     if len(volumes) < 21:
@@ -103,6 +108,7 @@ def technicals(closes, volumes, rsi, highs=None, lows=None):
         "sma20_prev": sum(closes[-21:-1]) / 20,
         "sma50_prev": sum(closes[-51:-1]) / 50,
         "volume_ratio": volumes[-1] / avg if avg else 0.0,
+        "vol20": _stdev([(b / a - 1) * 100 for a, b in zip(closes[-21:], closes[-20:])]),
         **{f"ret{n}d": (closes[-1] / closes[-1 - n] - 1) * 100 for n in (1, 5, 20)},
         **extras(closes, volumes, highs, lows),
     }

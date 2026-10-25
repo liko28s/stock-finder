@@ -31,6 +31,7 @@ def record(state, message_id, ticker, signal, now=None, pick=None, verdict=None)
                                 "ts": time.time() if now is None else now, "outcome": None, "reminder_id": None,
                                 "snapshot": pick and pick["snapshot"], "reasoning": verdict and verdict["reasoning"],
                                 "confidence": verdict and verdict["confidence"], "model": verdict and verdict.get("model"),
+                                "scenarios": verdict and verdict.get("scenarios"),
                                 "postmortem": None})
 
 

@@ -1,6 +1,10 @@
 import math
+import logging
 import re
 
+from . import scenarios
+
+log = logging.getLogger(__name__)
 NUM = re.compile(r"-?\d+(?:\.\d+)?")
 
 
@@ -26,4 +30,9 @@ def validate(verdict, snapshot):
     quoted = [float(n) for n in NUM.findall(verdict["reasoning"])]
     if not any(_close(q, v) for q in quoted for v in cited.values()):
         raise ValidationError("reasoning quotes none of the cited values")
+    if "scenarios" in verdict:  # optional extra: a bad table is dropped, the verdict stays
+        clean = scenarios.clean(verdict["scenarios"], snapshot, verdict["signal"])
+        if clean is None:
+            log.warning("dropping scenarios: malformed or outside the volatility band")
+        verdict = {**verdict, "scenarios": clean}
     return verdict
