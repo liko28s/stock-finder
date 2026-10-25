@@ -22,3 +22,6 @@ ollama_url = "http://localhost:11434"
 
 [feedback]
 review_after_days = 5  # remind on unresolved alerts after this many days (react 👍 TP hit / 👎 SL hit)
+
+[alerts]
+chart_links = true  # add a QuickChart candlestick (marked at the alert) + TradingView link; sends only public OHLC to quickchart.io

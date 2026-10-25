@@ -13,7 +13,8 @@ class Config:
     thresholds: dict
     ai: dict
     keys: dict = field(repr=False)
-    feedback: dict = field(default_factory=dict)  # V6: never in repr/logs
+    feedback: dict = field(default_factory=dict)
+    alerts: dict = field(default_factory=dict)  # V6: never in repr/logs
 
 
 def _dotenv(path=".env"):
@@ -37,4 +38,4 @@ def load(path="config.toml", env=None) -> Config:
         if n not in keys:
             raise KeyError(v)
     keys.update({n: env[v] for n, v in OPTIONAL.items() if v in env})
-    return Config(raw.get("universe", {}), raw.get("thresholds", {}), ai, keys, raw.get("feedback", {}))
+    return Config(raw.get("universe", {}), raw.get("thresholds", {}), ai, keys, raw.get("feedback", {}), raw.get("alerts", {}))

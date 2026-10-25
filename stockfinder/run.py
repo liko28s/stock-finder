@@ -1,11 +1,12 @@
 import json
 import logging
+import time
 from pathlib import Path
 
 from .ai import Analyzer, AIError
 from .alphavantage import AlphaVantage
 from .config import load
-from . import feedback
+from . import chart, feedback
 from .data import SourceError
 from .screener import screen, top_picks
 from .telegram import NotifyError, Telegram
@@ -68,6 +69,8 @@ def run(cfg, primary, fallback, analyzer, notifier, last_signals=None, fb_state=
             log.info("%s: %s already alerted, skipping duplicate", tk, verdict["signal"])
             continue
         try:
+            if getattr(cfg, "alerts", {}).get("chart_links", True):
+                pick["links"] = chart.links(pick, time.time(), primary)
             message_id = notifier.send_pick(pick, verdict)
             seen[tk] = verdict["signal"]
             if fb_state is not None:
