@@ -50,6 +50,7 @@ T16|x|post-mortem on reaction — replay signal-time data+reasoning, price path 
 T17|x|more indicators in snapshot + prompt: MACD(12/26/9), ATR14, ADX14 (+DI/-DI), OBV slope, KER10, 20d z-score (mean reversion); skipped when history too short|V1,V2
 T18|x|catch movers: discovery adds day_gainers/day_losers (round-robin under cap), ret1d/5d/20d indicators, momentum trigger (|1d move| >= move_pct w/ volume, lower priority than RSI/MA extremes)|T11,V1
 T19|x|alert links: exact alert time/price, QuickChart candlestick marked at alert, TradingView link; failure never blocks alert|V3
+T20|x|10 USD sample-trade scenarios (1w..6m worst/expected/best) in verdict + alert; volatility-anchored prompt, bounds-checked, optional|V2
 
 ## §B bugs
 id|date|cause|fix

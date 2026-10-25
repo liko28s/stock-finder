@@ -33,6 +33,13 @@ ADX14 with +DI/-DI, OBV slope (20d), Kaufman efficiency ratio (10d), 20d z-score
 Indicators that need more history than the source returned are omitted, not faked. They inform the AI and the
 post-mortem; the screener's pre-bull/pre-bear filter is unchanged.
 
+## Sample-trade scenarios
+
+Each alert includes a 10 USD sample trade (long for pre-bull, short for pre-bear) with worst / expected / best P&L after
+1w, 2w, 3w, 4w, 2m and 6m. The AI writes the table, but the prompt gives it the stock's daily volatility (`vol20`) and the
+one-sigma P&L per horizon, and the validator drops any table that is unordered, beyond 3 sigma, or loses a long more than
+the stake. A dropped table never blocks the alert. It is an illustration of best/worst cases, not a forecast.
+
 ## Alerts and feedback
 
 Each alert carries `#TICKER` and `#pre_bull`/`#pre_bear` hashtags: tap one in Telegram to list every alert for it.

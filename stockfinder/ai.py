@@ -4,6 +4,8 @@ import re
 
 import requests
 
+from . import scenarios
+
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models"
 MAX_TRIES = 5  # models attempted per pick before giving up
@@ -22,7 +24,8 @@ Reply with a single JSON object, no prose, with exactly these keys:
   "signal": "pre-bull" | "pre-bear" | "neutral"
   "confidence": number 0..1
   "reasoning": short string citing the numbers
-  "cited_metrics": object mapping metric name -> value copied from the data (e.g. {{"rsi": 27.4, "pe": 18.2}})"""
+  "cited_metrics": object mapping metric name -> value copied from the data (e.g. {{"rsi": 27.4, "pe": 18.2}})
+  "scenarios": sample-trade table, described below (omit only if no volatility is given)"""
 
 
 class AIError(Exception):
@@ -39,7 +42,7 @@ def build_prompt(pick):
     data = json.dumps({"fundamentals": rounded(s["fundamentals"]), "technicals": rounded(s["technicals"])}, indent=1)
     why = ("momentum: a large 1-day move on high volume, with no RSI/MA extreme; judge whether it is a breakout or "
            "an exhausted spike" if pick.get("trigger") == "momentum" else "RSI extreme or moving-average cross on high volume")
-    return PROMPT.format(ticker=pick["ticker"], signal=pick["signal"], why=why, source=s["source"], data=data)
+    return PROMPT.format(ticker=pick["ticker"], signal=pick["signal"], why=why, source=s["source"], data=data) + scenarios.prompt_block(pick)
 
 
 def parse_verdict(text):
@@ -56,7 +59,7 @@ def parse_verdict(text):
         raise AIError("bad confidence")
     if not isinstance(v.get("reasoning"), str) or not isinstance(v.get("cited_metrics"), dict):
         raise AIError("missing reasoning or cited_metrics")
-    return {k: v[k] for k in ("signal", "confidence", "reasoning", "cited_metrics")}
+    return {k: v[k] for k in ("signal", "confidence", "reasoning", "cited_metrics", "scenarios") if k in v}
 
 
 ASSESSMENTS = {"good_call", "bad_call", "lucky", "unlucky", "inconclusive"}

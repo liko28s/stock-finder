@@ -2,6 +2,8 @@ import re
 
 import requests
 
+from . import scenarios
+
 LIMIT = 4096  # Bot API max text length
 SIGNALS = {"pre-bull", "pre-bear"}
 
@@ -18,13 +20,15 @@ def tag(text):
     return "#" + re.sub(r"\W", "_", text)
 
 
-def format_pick(ticker, signal, reasoning, confidence=None, source=None, model=None, links=None):
+def format_pick(ticker, signal, reasoning, confidence=None, source=None, model=None, links=None, scn=None):
     head = f"{ICON.get(signal, '')} {tag(ticker)} {tag(signal)}\n{signal.upper()}"
     if confidence is not None:
         head += f" · confidence {confidence:.0%}"
     text = f"{head}\n\n{reasoning.strip()}"
     if source:
         text += f"\n\nData: {source}" + (f" · AI: {model}" if model else "") + ". Advisory only, not a trade order."
+    if scn:
+        text += "\n\n" + scenarios.lines(scn, signal)
     if links:
         text += f"\n\n🕒 Alerted {links['when']} @ {links['price']:.2f}"
         text += "".join(f"\n{label}: {links[k]}" for k, label in (("chart", "📈 Chart"), ("tradingview", "🔗 TradingView"))
@@ -39,7 +43,7 @@ class Telegram:
         self.url = self.api + "sendMessage"
         self.chat_id, self.http = chat_id, http
 
-    def send(self, ticker, signal, reasoning, confidence=None, source=None, model=None, links=None):
+    def send(self, ticker, signal, reasoning, confidence=None, source=None, model=None, links=None, scn=None):
         """V3: refuses without a pre-bull/pre-bear classification and non-empty reasoning. Returns message_id."""
         if signal not in SIGNALS:
             raise NotifyError(f"refusing to send {ticker}: signal {signal!r} is not pre-bull/pre-bear")
@@ -47,7 +51,7 @@ class Telegram:
             raise NotifyError(f"refusing to send {ticker}: no reasoning")
         try:
             r = self.http.post(self.url, json={"chat_id": self.chat_id, "text": format_pick(
-                ticker, signal, reasoning, confidence, source, model, links)}, timeout=15)
+                ticker, signal, reasoning, confidence, source, model, links, scn)}, timeout=15)
             r.raise_for_status()
             body = r.json()
             ok = body.get("ok")
@@ -59,7 +63,7 @@ class Telegram:
 
     def send_pick(self, pick, verdict):
         return self.send(pick["ticker"], verdict["signal"], verdict["reasoning"], verdict["confidence"],
-                         pick["snapshot"]["source"], verdict.get("model"), pick.get("links"))
+                         pick["snapshot"]["source"], verdict.get("model"), pick.get("links"), verdict.get("scenarios"))
 
     def _post(self, method, payload, what):
         try:
