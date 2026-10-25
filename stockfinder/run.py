@@ -7,7 +7,7 @@ from .alphavantage import AlphaVantage
 from .config import load
 from . import feedback
 from .data import SourceError
-from .screener import screen
+from .screener import screen, top_picks
 from .telegram import NotifyError, Telegram
 from .validate import ValidationError, validate
 from .yahoo import Yahoo
@@ -49,9 +49,13 @@ def run(cfg, primary, fallback, analyzer, notifier, last_signals=None, fb_state=
     seen = last_signals if last_signals is not None else {}
     tickers = build_universe(cfg, primary)
     picks = screen(tickers, lambda t: fetch_with_fallback(t, primary, fallback), cfg.thresholds)
+    picks = top_picks(picks, cfg.thresholds.get("max_picks"))
     sent = 0
     for pick in picks:
         tk = pick["ticker"]
+        if seen.get(tk) == pick["signal"]:  # already alerted this signal: don't spend an AI call to re-confirm
+            log.info("%s: %s already alerted, skipping", tk, pick["signal"])
+            continue
         try:
             verdict = validate(analyzer.analyze(pick), pick["snapshot"])
         except (AIError, ValidationError) as e:

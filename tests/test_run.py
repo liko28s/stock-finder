@@ -84,6 +84,19 @@ def test_sent_alerts_recorded_for_reaction_matching():
     assert [(a["id"], a["ticker"], a["signal"]) for a in fb["alerts"]] == [(101, "A", "pre-bull"), (102, "B", "pre-bull")]
 
 
+def test_only_top_n_picks_reach_the_ai_and_alerted_ones_are_skipped():
+    calls = []
+
+    class Counting(Analyzer):
+        def analyze(self, pick):
+            calls.append(pick["ticker"])
+            return super().analyze(pick)
+
+    cfg = SimpleNamespace(universe={"tickers": ["A", "B", "C"]}, thresholds={**TH, "max_picks": 2})
+    assert run(cfg, Src(), None, Counting(GOOD), Notifier(), {"A": "pre-bull"}) == 1
+    assert len(calls) == 1  # 3 screened, cut to 2, one of those already alerted -> 1 AI call
+
+
 def test_ai_failure_or_invalid_citation_sends_nothing(caplog):
     n = Notifier()
     with caplog.at_level(logging.WARNING):

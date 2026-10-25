@@ -6,6 +6,7 @@ max_tickers = 120           # cap on total scanned (config + discovered), API po
 [thresholds]
 rsi_oversold = 30
 rsi_overbought = 70
+max_picks = 15         # only the most relevant N screened picks per scan get an AI call
 move_pct = 5.0         # |1-day move| that flags a momentum pick (needs volume_ratio too); remove to disable
 volume_ratio = 1.5     # today's volume / 20d avg
 ttl_seconds = 900      # max age of fetched data (V1)
