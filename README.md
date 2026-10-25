@@ -37,6 +37,10 @@ post-mortem; the screener's pre-bull/pre-bear filter is unchanged.
 
 Each alert carries `#TICKER` and `#pre_bull`/`#pre_bear` hashtags: tap one in Telegram to list every alert for it.
 
+Each alert shows the exact alert time and price, a QuickChart candlestick (3 months of daily candles, marked at the
+alert candle and price level) and a TradingView link for the interactive chart. Charts use quickchart.io (free,
+no key; only public OHLC data is sent); a failure just drops the chart line. `[alerts] chart_links = false` disables it.
+
 React to an alert: 👍 = target hit, 👎 = stop hit. Each scan polls reactions (`feedback.json`) and, after
 `feedback.review_after_days`, replies under unresolved alerts asking how it went. Reacting on the reminder works too.
 When you react, the next scan runs a post-mortem and replies under the alert: it replays the signal-time

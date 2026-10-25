@@ -67,5 +67,14 @@ class Yahoo:
             raise SourceError(f"yahoo: no bars for {ticker} since {start}")
         return bars
 
+    def candles(self, ticker, period="3mo"):
+        """Daily candles for charting: [{x: epoch ms, o, h, l, c}]."""
+        try:
+            h = self.ticker(ticker).history(period=period, interval="1d").dropna(subset=["Close"])
+            return [{"x": int(i.timestamp() * 1000), "o": float(r["Open"]), "h": float(r["High"]),
+                     "l": float(r["Low"]), "c": float(r["Close"])} for i, r in h.iterrows()]
+        except Exception as e:
+            raise SourceError(f"yahoo candles {ticker}: {type(e).__name__}") from e
+
     def snapshot(self, ticker):
         return snapshot(ticker, "yahoo", self.fundamentals(ticker), self.technicals(ticker))
