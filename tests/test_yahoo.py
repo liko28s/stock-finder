@@ -89,3 +89,11 @@ def test_path_returns_daily_bars_since_alert():
                     {"date": "2026-10-21", "open": 11.0, "high": 13.0, "low": 10.5, "close": 12.0}]
     with pytest.raises(SourceError):
         yahoo(err=RuntimeError("x")).path("AAPL", time.time())
+
+
+def test_todays_forming_bar_gets_pace_adjusted_volume(monkeypatch):
+    import stockfinder.yahoo as y
+    idx = pd.date_range(end=pd.Timestamp.now(tz="America/New_York").normalize(), periods=60, freq="D")
+    h = hist(last_vol=50.0).set_index(idx)  # 50 so far vs 100/day average
+    monkeypatch.setattr(y, "session_fraction", lambda d: 0.25 if d == idx[-1].date() else 1.0)
+    assert Yahoo(lambda t: FakeTicker(hist=h)).technicals("AAPL")["volume_ratio"] == pytest.approx(2.0)

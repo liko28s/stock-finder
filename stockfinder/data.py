@@ -1,5 +1,11 @@
 """Shared snapshot shape + helpers for all data sources."""
 import time
+from datetime import datetime, time as clock
+from zoneinfo import ZoneInfo
+
+NY = ZoneInfo("America/New_York")
+OPEN, CLOSE = clock(9, 30), clock(16, 0)  # regular US session
+MIN_FRACTION = 0.1  # first ~40 min: don't divide by ~0
 
 
 class SourceError(Exception):
@@ -95,11 +101,24 @@ def _stdev(xs):
     return (sum((x - m) ** 2 for x in xs) / len(xs)) ** 0.5
 
 
-def technicals(closes, volumes, rsi, highs=None, lows=None):
-    """Derive the indicator set from raw series. Volume ratio = last / avg of prior 20."""
+def session_fraction(bar_day, now=None):
+    """Share of today's US session elapsed, if bar_day is today's (still forming) bar; 1.0 otherwise (closed, pre-open,
+    weekend, holiday, or the date is unknown). Scales the volume average so a 10:30 bar isn't judged against a full day.
+    ponytail: linear in time, but real volume is U-shaped (heavy open), so mornings read a bit high; use an intraday
+    volume curve if early-session picks prove noisy. Futures/non-US tickers are timed on the US session too."""
+    now = (now or datetime.now(NY)).astimezone(NY)
+    if bar_day != now.date() or not OPEN <= now.time() < CLOSE:
+        return 1.0
+    mins = lambda t: t.hour * 60 + t.minute + t.second / 60
+    return max((mins(now.time()) - mins(OPEN)) / (mins(CLOSE) - mins(OPEN)), MIN_FRACTION)
+
+
+def technicals(closes, volumes, rsi, highs=None, lows=None, day_fraction=1.0):
+    """Derive the indicator set from raw series. Volume ratio = last / avg of prior 20, with the average scaled by
+    day_fraction (see session_fraction) so an in-progress day is compared at the same pace."""
     if len(volumes) < 21:
         raise SourceError("need 21 volume points")
-    avg = sum(volumes[-21:-1]) / 20
+    avg = sum(volumes[-21:-1]) / 20 * day_fraction
     return {
         "rsi": rsi,
         "close": closes[-1],

@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 import yfinance
 
-from .data import SourceError, rsi, snapshot, technicals
+from .data import SourceError, rsi, session_fraction, snapshot, technicals
 
 log = logging.getLogger(__name__)
 
@@ -47,11 +47,13 @@ class Yahoo:
             closes, vols = h["Close"].dropna().tolist(), h["Volume"].dropna().tolist()
             hc = h.dropna(subset=["Close"])  # keep highs/lows aligned with closes
             highs, lows = (hc["High"].tolist(), hc["Low"].tolist()) if {"High", "Low"} <= set(h) else (None, None)
+            last = hc.index[-1] if len(hc) else None
+            frac = session_fraction(last.tz_convert("America/New_York").date() if getattr(last, "tzinfo", None) else None)
         except Exception as e:
             raise SourceError(f"yahoo history {ticker}: {type(e).__name__}") from e
         if not closes:  # yfinance returns an empty frame instead of raising
             raise SourceError(f"yahoo: no history for {ticker}")
-        return technicals(closes, vols, rsi(closes), highs, lows)
+        return technicals(closes, vols, rsi(closes), highs, lows, frac)
 
     def path(self, ticker, since_ts):
         """Daily bars from the alert day to now: [{date, open, high, low, close}] for post-mortems."""
