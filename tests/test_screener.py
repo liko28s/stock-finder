@@ -29,6 +29,18 @@ def test_death_cross_is_pre_bear():
     assert classify(snap(s20=10, s50=11, p20=11.5, p50=11), TH) == "pre-bear"
 
 
+def test_oversold_in_strong_downtrend_is_skipped():
+    th = {**TH, "max_downtrend_adx": 25}
+    knife = snap(rsi=22)
+    knife["technicals"].update(adx=33, plus_di=13, minus_di=44)
+    assert classify(knife, th) is None
+    assert classify(knife, TH) == "pre-bull"  # threshold unset: filter off
+    knife["technicals"].update(adx=20)  # weak trend: still a candidate
+    assert classify(knife, th) == "pre-bull"
+    knife["technicals"].update(adx=33, plus_di=44, minus_di=13)  # strong trend, but up
+    assert classify(knife, th) == "pre-bull"
+
+
 def test_low_volume_no_signal():
     assert classify(snap(rsi=25, vol=1.0), TH) is None
 
