@@ -143,7 +143,7 @@ source returns too little history, that indicator is left out, never faked.
 |---|---|---|
 | **RSI 14** (Wilder) | Momentum oscillator 0–100: speed of recent gains vs losses | ≤ `rsi_oversold` (30) → pre-bull; ≥ `rsi_overbought` (70) → pre-bear |
 | **SMA 20 / SMA 50** | Short vs medium-term average price | Fresh **golden cross** (20 crosses above 50) → pre-bull; **death cross** → pre-bear |
-| **Volume ratio** | Today's volume ÷ average of the prior 20 days | Must be ≥ `volume_ratio` (1.5×). No volume, no signal |
+| **Volume ratio** | Today's volume ÷ average of the prior 20 days, **pace-adjusted** during market hours (at 10:30 ET, today's volume is compared with 1/6.5 of a normal day) | Must be ≥ `volume_ratio` (1.5×). No volume, no signal |
 | **ADX 14 + DI** | Trend strength and direction | **Falling-knife filter**: an oversold pick with ADX > `max_downtrend_adx` (25) and −DI > +DI is skipped. The AI rejected nearly all of these |
 | **1-day return** | Today's % change | \|move\| ≥ `move_pct` (5%) on high volume → *momentum* pick (only when no RSI/MA signal fires) |
 

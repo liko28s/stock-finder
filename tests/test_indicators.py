@@ -1,6 +1,8 @@
 import pytest
 
-from stockfinder.data import atr_adx, extras, technicals
+from datetime import date, datetime
+
+from stockfinder.data import NY, atr_adx, extras, session_fraction, technicals
 
 
 def trend(n=60, step=1.0):
@@ -44,3 +46,21 @@ def test_technicals_includes_new_keys_and_still_validates_cleanly():
     c, h, l, v = trend(60)
     t = technicals(c, v, 55.0, h, l)
     assert {"adx", "atr", "macd", "obv_slope20", "ker10", "zscore20"} <= set(t)
+
+
+def test_session_fraction_scales_only_todays_open_bar():
+    at = lambda h, m: datetime(2026, 10, 26, h, m, tzinfo=NY)  # a Monday
+    today = date(2026, 10, 26)
+    assert session_fraction(today, at(12, 45)) == pytest.approx(0.5)  # 3h15 of 6h30
+    assert session_fraction(today, at(9, 35)) == 0.1  # floor right after the open
+    assert session_fraction(today, at(17, 0)) == 1.0  # closed: full day
+    assert session_fraction(today, at(8, 0)) == 1.0  # pre-open
+    assert session_fraction(date(2026, 10, 23), at(12, 45)) == 1.0  # last bar is Friday's (complete)
+    assert session_fraction(None, at(12, 45)) == 1.0  # unknown date
+
+
+def test_half_day_volume_at_half_session_is_normal():
+    c, h, l, v = trend(60)
+    v[-1] = 500.0  # half the usual 1000 by mid-session
+    assert technicals(c, v, 55.0, h, l)["volume_ratio"] == pytest.approx(0.5)
+    assert technicals(c, v, 55.0, h, l, day_fraction=0.5)["volume_ratio"] == pytest.approx(1.0)
