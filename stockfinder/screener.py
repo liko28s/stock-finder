@@ -15,14 +15,24 @@ def classify_ex(snap, th):
         return None, None
     golden = t["sma20_prev"] <= t["sma50_prev"] and t["sma20"] > t["sma50"]
     death = t["sma20_prev"] >= t["sma50_prev"] and t["sma20"] < t["sma50"]
-    bull = t["rsi"] <= th["rsi_oversold"] or golden
+    oversold = t["rsi"] <= th["rsi_oversold"]
+    bull = oversold or golden
     bear = t["rsi"] >= th["rsi_overbought"] or death
+    if oversold and not golden and falling_knife(t, th):
+        return None, None
     if bull != bear:
         return ("pre-bull" if bull else "pre-bear"), "extreme"
     move, r1 = th.get("move_pct"), t.get("ret1d")
     if bull or not move or r1 is None or abs(r1) < move:  # bull and bear both true = conflicting: no call
         return None, None
     return ("pre-bull" if r1 > 0 else "pre-bear"), "momentum"
+
+
+def falling_knife(t, th):
+    """Oversold inside a strong downtrend (adx > max_downtrend_adx, -DI above +DI). The AI rejected nearly all of
+    these as pre-bull, so they're dropped before spending a call on them. Unset threshold or no ADX = never."""
+    lim = th.get("max_downtrend_adx")
+    return bool(lim and t.get("adx") is not None and t["adx"] > lim and t.get("minus_di", 0) > t.get("plus_di", 0))
 
 
 def classify(snap, th):

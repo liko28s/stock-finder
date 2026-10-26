@@ -138,3 +138,11 @@ def test_backend_down_is_aierror_not_crash():
             raise requests.ConnectionError("refused")
     with pytest.raises(AIError):
         Analyzer({**CFG, "backend": "ollama"}, {}, Down()).analyze(PICK)
+
+
+def test_null_content_is_aierror_not_crash():
+    class Null:
+        def post(self, *a, **k):
+            return Resp({"choices": [{"message": {"content": None}}]})
+    with pytest.raises(AIError, match="empty reply"):
+        Analyzer(CFG, {"openrouter": "k"}, Null()).analyze(PICK)

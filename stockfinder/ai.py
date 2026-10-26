@@ -123,9 +123,12 @@ class Analyzer:
         try:  # connection errors too: a down backend fails this pick, not the whole run
             r = post()
             r.raise_for_status()
-            return extract(r.json())
+            text, tokens = extract(r.json())
         except (requests.RequestException, ValueError, KeyError, IndexError, TypeError) as e:
             raise AIError(f"{backend} call failed: {type(e).__name__}") from e
+        if not isinstance(text, str) or not text.strip():  # some reasoning models return content: null
+            raise AIError(f"{backend} returned an empty reply")
+        return text, tokens
 
     def _roll(self, prompt, parse, label):
         """OpenRouter: try up to max_model_tries models, rolling over on call failure, rate limit or unparsable

@@ -144,6 +144,7 @@ source returns too little history, that indicator is left out, never faked.
 | **RSI 14** (Wilder) | Momentum oscillator 0–100: speed of recent gains vs losses | ≤ `rsi_oversold` (30) → pre-bull; ≥ `rsi_overbought` (70) → pre-bear |
 | **SMA 20 / SMA 50** | Short vs medium-term average price | Fresh **golden cross** (20 crosses above 50) → pre-bull; **death cross** → pre-bear |
 | **Volume ratio** | Today's volume ÷ average of the prior 20 days | Must be ≥ `volume_ratio` (1.5×). No volume, no signal |
+| **ADX 14 + DI** | Trend strength and direction | **Falling-knife filter**: an oversold pick with ADX > `max_downtrend_adx` (25) and −DI > +DI is skipped. The AI rejected nearly all of these |
 | **1-day return** | Today's % change | \|move\| ≥ `move_pct` (5%) on high volume → *momentum* pick (only when no RSI/MA signal fires) |
 
 Picks are ranked by **relevance = volume ratio × max(|1-day move %|, |RSI − 50| / 4)**, so a quiet RSI-31 drift
@@ -288,10 +289,11 @@ All tuning lives in [`config.toml`](config.toml):
 | `thresholds.rsi_oversold` / `rsi_overbought` | 30 / 70 | RSI extremes |
 | `thresholds.volume_ratio` | 1.5 | Minimum volume vs 20-day average |
 | `thresholds.move_pct` | 5.0 | 1-day move for a momentum pick (remove to disable) |
+| `thresholds.max_downtrend_adx` | 25 | Skip oversold pre-bull picks in a strong downtrend (remove to disable) |
 | `thresholds.max_picks` | 15 | Only the N most relevant picks get an AI call |
 | `thresholds.ttl_seconds` | 900 | Max age of fetched data |
 | `ai.backend` | `openrouter` | `openrouter` or `ollama`, same output contract either way |
-| `ai.openrouter_model` / `openrouter_fallbacks` | free models | Tried in order |
+| `ai.openrouter_model` / `openrouter_fallbacks` | Nemotron 3 Ultra, then Laguna S 2.1, Gemma 4 | Tried in order (all free) |
 | `ai.auto_free_models` / `max_model_tries` | `true` / 4 | Rollover behaviour |
 | `ai.ollama_model` / `ollama_url` | `localhost:11434` | Local backend |
 | `feedback.review_after_days` | 5 | When to nudge for a 👍/👎 |
